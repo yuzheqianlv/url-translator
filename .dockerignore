@@ -1,0 +1,28 @@
+# Rust build artifacts
+target/
+dist/
+
+# Dependencies
+node_modules/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+Todos.md
+
+# Development files
+.env
+*.log

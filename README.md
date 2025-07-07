@@ -88,6 +88,58 @@ trunk build --release
 - **网络访问**: 使用 `--address 0.0.0.0` 允许局域网访问
 - **配置文件**: 可在 `Trunk.toml` 中修改默认设置
 
+## Docker 部署
+
+### 快速部署
+
+使用提供的部署脚本一键部署：
+
+```bash
+./deploy.sh
+```
+
+### 手动部署
+
+1. **构建镜像**
+```bash
+docker build -t url-translator .
+```
+
+2. **运行容器**
+```bash
+docker run -d -p 3000:80 --name url-translator url-translator
+```
+
+3. **使用 Docker Compose**
+```bash
+# 启动服务
+docker-compose up -d
+
+# 停止服务
+docker-compose down
+
+# 查看日志
+docker-compose logs -f
+```
+
+### 健康检查
+
+```bash
+# 检查应用状态
+./health-check.sh
+
+# 检查特定端口
+./health-check.sh 3000
+
+# 检查远程服务器
+./health-check.sh 3000 your-server.com
+```
+
+### Docker 环境访问
+
+- **本地访问**: http://localhost:3000
+- **局域网访问**: http://your-ip:3000
+
 ## 📖 使用指南
 
 ### 基本使用
