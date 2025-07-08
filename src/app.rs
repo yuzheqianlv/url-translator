@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_router::*;
 use crate::theme::{ThemeProvider, use_theme, ThemeVariant};
 use crate::error::{ErrorProvider, ErrorDisplay};
-use crate::pages::{HomePage, SettingsPage, HistoryPage};
+use crate::pages::{HomePage, SettingsPage, HistoryPage, BatchPage};
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -15,6 +15,7 @@ pub fn App() -> impl IntoView {
                         <main class="container mx-auto px-4 py-8">
                             <Routes>
                                 <Route path="/" view=HomePage/>
+                                <Route path="/batch" view=BatchPage/>
                                 <Route path="/settings" view=SettingsPage/>
                                 <Route path="/history" view=HistoryPage/>
                             </Routes>
@@ -58,7 +59,14 @@ fn AppHeader() -> impl IntoView {
                             class="transition-colors hover:opacity-80 themed-subtext" 
                             active_class="font-medium"
                         >
-                            "首页"
+                            "单页翻译"
+                        </A>
+                        <A 
+                            href="/batch" 
+                            class="transition-colors hover:opacity-80 themed-subtext"
+                            active_class="font-medium"
+                        >
+                            "批量翻译"
                         </A>
                         <A 
                             href="/history" 

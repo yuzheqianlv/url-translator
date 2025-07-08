@@ -251,8 +251,8 @@ impl From<reqwest::Error> for AppError {
     fn from(err: reqwest::Error) -> Self {
         if err.is_timeout() {
             AppError::network("请求超时")
-        } else if err.is_connect() {
-            AppError::network("连接失败")
+        } else if err.is_request() {
+            AppError::network("请求错误")
         } else {
             AppError::network(format!("网络错误: {}", err))
         }

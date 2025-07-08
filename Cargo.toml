@@ -20,6 +20,7 @@ js-sys = "0.3"
 urlencoding = "2.1"
 futures = "0.3"
 gloo-timers = { version = "0.2", features = ["futures"] }
+flate2 = "1.0"
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -1,6 +1,6 @@
 use leptos::*;
 use wasm_bindgen_futures::spawn_local;
-use crate::services::{jina_service::JinaService, deeplx_service::DeepLXService, config_service::ConfigService, history_service::HistoryService};
+use crate::services::{jina_service::JinaService, deeplx_service::DeepLXService, config_service::ConfigService, history_service::HistoryService, content_processor::ContentProcessor};
 use crate::types::history::HistoryEntry;
 use crate::error::{use_error_handler, AppError};
 
@@ -75,16 +75,28 @@ pub fn use_translation() -> UseTranslationReturn {
                                 Ok(content) => {
                                     web_sys::console::log_1(&format!("内容提取成功，长度: {} 字符", content.len()).into());
                                     
-                                    // 步骤2: 翻译内容
-                                    web_sys::console::log_1(&"=== 步骤2: 开始翻译内容 ===".into());
+                                    // 步骤2: 处理代码块保护
+                                    web_sys::console::log_1(&"=== 步骤2: 处理代码块保护 ===".into());
+                                    let mut content_processor = ContentProcessor::new();
+                                    let protected_content = content_processor.protect_code_blocks(&content);
+                                    let protection_stats = content_processor.get_protection_stats();
+                                    
+                                    web_sys::console::log_1(&format!("代码块保护完成: {}", protection_stats.get_summary()).into());
+                                    
+                                    // 步骤3: 翻译内容
+                                    web_sys::console::log_1(&"=== 步骤3: 开始翻译内容 ===".into());
                                     set_status_clone.set(TranslationStatus::Translating);
                                     set_progress_clone.set("正在翻译内容...".to_string());
                                     
-                                    match deeplx_service.translate(&content, &config.default_source_lang, &config.default_target_lang, &config).await {
-                                        Ok(translated_content) => {
-                                            web_sys::console::log_1(&format!("翻译成功，长度: {} 字符", translated_content.len()).into());
+                                    match deeplx_service.translate(&protected_content, &config.default_source_lang, &config.default_target_lang, &config).await {
+                                        Ok(translated_protected_content) => {
+                                            web_sys::console::log_1(&format!("翻译成功，长度: {} 字符", translated_protected_content.len()).into());
                                             
-                                            set_result_clone.set(translated_content.clone());
+                                            // 步骤4: 恢复代码块
+                                            web_sys::console::log_1(&"=== 步骤4: 恢复代码块 ===".into());
+                                            let final_translated_content = content_processor.restore_code_blocks(&translated_protected_content);
+                                            
+                                            set_result_clone.set(final_translated_content.clone());
                                             set_status_clone.set(TranslationStatus::Completed);
                                             set_progress_clone.set("翻译完成".to_string());
                                             
@@ -97,7 +109,7 @@ pub fn use_translation() -> UseTranslationReturn {
                                                 config.default_source_lang.clone(),
                                                 config.default_target_lang.clone(),
                                                 content,
-                                                translated_content,
+                                                final_translated_content,
                                             );
                                             
                                             if let Err(e) = history_service.add_entry(history_entry) {
