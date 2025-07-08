@@ -3,7 +3,9 @@ use wasm_bindgen_futures::spawn_local;
 use crate::services::{
     batch_service::{BatchTranslationService, DocumentLink, TranslatedDocument, BatchProgress, BatchStatus},
     config_service::ConfigService,
+    history_service::HistoryService,
 };
+use crate::types::history::{HistoryEntry, BatchTranslationData, BatchDocumentInfo};
 use crate::error::{use_error_handler, AppError};
 
 pub struct UseBatchTranslationReturn {
@@ -87,6 +89,8 @@ pub fn use_batch_translation() -> UseBatchTranslationReturn {
                                     // 步骤2: 批量翻译
                                     web_sys::console::log_1(&"=== 步骤2: 开始批量翻译 ===".into());
                                     
+                                    let total_links = links.len(); // 保存总数
+                                    
                                     let progress_callback = {
                                         let set_progress_clone = set_progress_clone.clone();
                                         move |progress: BatchProgress| {
@@ -109,12 +113,61 @@ pub fn use_batch_translation() -> UseBatchTranslationReturn {
                                                 status: BatchStatus::Packaging,
                                             });
 
-                                            match batch_service.create_zip_archive(&translated_documents) {
-                                                Ok(zip_data) => {
-                                                    web_sys::console::log_1(&"ZIP文件创建成功".into());
+                                            match batch_service.create_compressed_archive(&translated_documents) {
+                                                Ok(compressed_data) => {
+                                                    web_sys::console::log_1(&"tar.gz文件创建成功".into());
+                                                    
+                                                    // 保存到历史记录
+                                                    web_sys::console::log_1(&"=== 步骤4: 保存历史记录 ===".into());
+                                                    let history_service = HistoryService::new();
+                                                    
+                                                    // 创建批量翻译数据
+                                                    let batch_document_list: Vec<BatchDocumentInfo> = translated_documents.iter().map(|doc| {
+                                                        BatchDocumentInfo {
+                                                            title: doc.link.title.clone(),
+                                                            url: doc.link.url.clone(),
+                                                            file_name: doc.file_name.clone(),
+                                                            folder_path: doc.folder_path.clone(),
+                                                            order: doc.link.order,
+                                                            translated: true,
+                                                            original_content: doc.original_content.clone(),
+                                                            translated_content: doc.translated_content.clone(),
+                                                        }
+                                                    }).collect();
+                                                    
+                                                    let failed_count = total_links - translated_documents.len();
+                                                    let batch_data = BatchTranslationData {
+                                                        total_documents: total_links,
+                                                        successful_documents: translated_documents.len(),
+                                                        failed_documents: failed_count,
+                                                        index_url: index_url.clone(),
+                                                        document_list: batch_document_list,
+                                                    };
+                                                    
+                                                    let title = format!("批量翻译: {}", 
+                                                        if let Some(first_doc) = translated_documents.first() {
+                                                            extract_domain_from_url(&first_doc.link.url)
+                                                        } else {
+                                                            "未知网站".to_string()
+                                                        }
+                                                    );
+                                                    
+                                                    let history_entry = HistoryEntry::new_batch_translation(
+                                                        index_url.clone(),
+                                                        title,
+                                                        config.default_source_lang.clone(),
+                                                        config.default_target_lang.clone(),
+                                                        batch_data,
+                                                    );
+                                                    
+                                                    if let Err(e) = history_service.add_entry(history_entry) {
+                                                        web_sys::console::log_1(&format!("保存历史记录失败: {}", e).into());
+                                                    } else {
+                                                        web_sys::console::log_1(&"批量翻译历史记录保存成功".into());
+                                                    }
                                                     
                                                     // 触发下载
-                                                    if let Err(e) = trigger_download(&zip_data, "translated_docs.md.gz") {
+                                                    if let Err(e) = trigger_download(&compressed_data, "translated_docs.tar.gz") {
                                                         web_sys::console::log_1(&format!("下载失败: {}", e).into());
                                                         error_handler.handle_error(AppError::file(format!("下载失败: {}", e)));
                                                     }
@@ -241,4 +294,26 @@ fn trigger_download(data: &[u8], filename: &str) -> Result<(), String> {
     web_sys::Url::revoke_object_url(&url).map_err(|_| "无法释放对象URL")?;
 
     Ok(())
+}
+
+/// 从URL提取域名
+fn extract_domain_from_url(url: &str) -> String {
+    if let Ok(parsed_url) = web_sys::Url::new(url) {
+        let hostname = parsed_url.hostname();
+        if !hostname.is_empty() {
+            return hostname;
+        }
+    }
+    
+    // 备用方案：手动解析
+    if let Some(start) = url.find("://") {
+        let after_protocol = &url[start + 3..];
+        if let Some(end) = after_protocol.find('/') {
+            after_protocol[..end].to_string()
+        } else {
+            after_protocol.to_string()
+        }
+    } else {
+        "未知网站".to_string()
+    }
 }

@@ -2,17 +2,24 @@ FROM rust:1.88 as builder
 
 WORKDIR /app
 
-# 先复制依赖文件，利用Docker缓存
-COPY Cargo.toml Cargo.lock ./
-COPY Trunk.toml ./
-
 # 安装构建依赖
 RUN rustup target add wasm32-unknown-unknown
 RUN cargo install trunk
 
-# 复制源代码
+# 先复制依赖文件，利用Docker缓存
+COPY Cargo.toml Cargo.lock ./
+COPY Trunk.toml ./
+
+# 创建src目录结构（用于依赖缓存）
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs
+
+# 预构建依赖
+RUN cargo build --release --target wasm32-unknown-unknown
+
+# 复制所有源代码和资源文件
 COPY src/ ./src/
 COPY index.html ./
+COPY style.css ./
 
 # 构建应用
 RUN trunk build --release

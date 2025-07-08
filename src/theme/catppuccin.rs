@@ -33,7 +33,7 @@ impl ThemeVariant {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CatppuccinTheme {
     pub rosewater: &'static str,
     pub flamingo: &'static str,
@@ -65,7 +65,7 @@ pub struct CatppuccinTheme {
 
 pub const CATPPUCCIN_LATTE: CatppuccinTheme = CatppuccinTheme {
     rosewater: "#dc8a78",
-    flamingo: "#dd7878",
+    flamingo: "#dd7878", 
     pink: "#ea76cb",
     mauve: "#8839ef",
     red: "#d20f39",
@@ -220,5 +220,76 @@ impl CatppuccinTheme {
         html_element.style().set_property("--color-base", self.base).unwrap();
         html_element.style().set_property("--color-mantle", self.mantle).unwrap();
         html_element.style().set_property("--color-crust", self.crust).unwrap();
+    }
+
+    // 便利方法获取按钮样式
+    pub fn button_primary_style(&self) -> String {
+        format!("background-color: {}; color: {}; border: 1px solid {};", self.blue, self.base, self.blue)
+    }
+
+    pub fn button_secondary_style(&self) -> String {
+        format!("background-color: {}; color: {}; border: 1px solid {};", self.surface0, self.text, self.surface2)
+    }
+
+    pub fn button_danger_style(&self) -> String {
+        format!("background-color: {}; color: {}; border: 1px solid {};", self.red, self.base, self.red)
+    }
+
+    pub fn button_success_style(&self) -> String {
+        format!("background-color: {}; color: {}; border: 1px solid {};", self.green, self.base, self.green)
+    }
+
+    // 便利方法获取输入框样式
+    pub fn input_style(&self) -> String {
+        format!("background-color: {}; color: {}; border: 1px solid {};", self.surface0, self.text, self.surface2)
+    }
+
+    // 便利方法获取卡片样式
+    pub fn card_style(&self) -> String {
+        format!("background-color: {}; border: 1px solid {};", self.surface0, self.surface2)
+    }
+
+    // 便利方法获取导航样式
+    pub fn nav_style(&self) -> String {
+        format!("background-color: {}; border-bottom: 1px solid {};", self.mantle, self.surface0)
+    }
+
+    // 便利方法获取内容背景样式
+    pub fn content_bg_style(&self) -> String {
+        format!("background-color: {};", self.surface1)
+    }
+
+    // 基础样式
+    pub fn base_bg_style(&self) -> String {
+        format!("background-color: {};", self.base)
+    }
+
+    pub fn text_style(&self) -> String {
+        format!("color: {};", self.text)
+    }
+
+    pub fn subtext_style(&self) -> String {
+        format!("color: {};", self.subtext1)
+    }
+
+    pub fn muted_text_style(&self) -> String {
+        format!("color: {};", self.subtext0)
+    }
+
+    // 状态颜色
+    pub fn success_color(&self) -> &str {
+        self.green
+    }
+
+    pub fn error_color(&self) -> &str {
+        self.red
+    }
+
+    pub fn warning_color(&self) -> &str {
+        self.yellow
+    }
+
+    pub fn info_color(&self) -> &str {
+        self.blue
     }
 }

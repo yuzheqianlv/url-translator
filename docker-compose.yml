@@ -1,11 +1,34 @@
+version: '3.8'
+
 services:
   url-translator:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: url-translator
     ports:
       - "3000:80"
     restart: unless-stopped
     environment:
       - NGINX_HOST=localhost
       - NGINX_PORT=80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.url-translator.rule=Host(`localhost`)"
+      - "traefik.http.services.url-translator.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - url-translator-network
+
+networks:
+  url-translator-network:
+    driver: bridge
+
+volumes:
+  nginx_cache:
+    driver: local

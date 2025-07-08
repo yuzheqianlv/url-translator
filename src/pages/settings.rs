@@ -2,10 +2,12 @@ use leptos::*;
 use crate::hooks::use_config::use_config;
 use crate::components::ThemeSelector;
 use crate::types::api_types::AppConfig;
+use crate::theme::use_theme_context;
 
 #[component]
 pub fn SettingsPage() -> impl IntoView {
     let config_hook = use_config();
+    let theme_context = use_theme_context();
     
     // 本地状态用于表单编辑
     let (deeplx_url, set_deeplx_url) = create_signal(String::new());
@@ -67,11 +69,11 @@ pub fn SettingsPage() -> impl IntoView {
     
     view! {
         <div class="max-w-2xl mx-auto">
-            <h1 class="text-2xl font-bold mb-6 themed-text">
+            <h1 class="text-2xl font-bold mb-6" style=move || theme_context.get().theme.text_style()>
                 "设置"
             </h1>
             
-            <div class="rounded-lg shadow-lg p-6 themed-bg-surface0">
+            <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
                 <div class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <ConfigInput 
@@ -142,15 +144,16 @@ pub fn SettingsPage() -> impl IntoView {
                         </div>
                     </div>
                     
-                    <div class="border-t pt-6 themed-border-t">
+                    <div class="border-t pt-6" style=move || format!("border-color: {};", theme_context.get().theme.surface2)>
                         <ThemeSelector />
                     </div>
                     
-                    <div class="flex items-center justify-between border-t pt-6 themed-border-t">
+                    <div class="flex items-center justify-between border-t pt-6" style=move || format!("border-color: {};", theme_context.get().theme.surface2)>
                         <div class="flex space-x-3">
                             <button
-                                class="px-6 py-2 rounded-md transition-colors themed-button-primary"
+                                class="px-6 py-2 rounded-md transition-colors"
                                 class:opacity-50=config_hook.is_loading
+                                style=move || theme_context.get().theme.button_primary_style()
                                 disabled=config_hook.is_loading
                                 on:click=save_settings
                             >
@@ -158,7 +161,8 @@ pub fn SettingsPage() -> impl IntoView {
                             </button>
                             
                             <button
-                                class="px-6 py-2 rounded-md transition-colors themed-button-secondary"
+                                class="px-6 py-2 rounded-md transition-colors"
+                                style=move || theme_context.get().theme.button_secondary_style()
                                 disabled=config_hook.is_loading
                                 on:click=reset_settings
                             >
@@ -167,7 +171,7 @@ pub fn SettingsPage() -> impl IntoView {
                         </div>
                         
                         <Show when=move || !save_message.get().is_empty()>
-                            <div class="text-green-600 font-medium">
+                            <div class="font-medium" style=move || format!("color: {};", theme_context.get().theme.success_color())>
                                 {save_message}
                             </div>
                         </Show>
@@ -200,14 +204,17 @@ fn ConfigInput(
     #[prop(optional)] min: &'static str,
     #[prop(optional)] max: &'static str,
 ) -> impl IntoView {
+    let theme_context = use_theme_context();
+    
     view! {
         <div>
-            <label class="block text-sm font-medium themed-text mb-2">
+            <label class="block text-sm font-medium mb-2" style=move || theme_context.get().theme.text_style()>
                 {label}
             </label>
             <input
                 type=input_type
-                class="w-full px-4 py-2 border rounded-md focus:ring-2 focus:border-transparent themed-input"
+                class="w-full px-4 py-2 rounded-md focus:ring-2 focus:border-transparent"
+                style=move || theme_context.get().theme.input_style()
                 placeholder=placeholder
                 prop:value=value
                 prop:min=min
@@ -227,13 +234,16 @@ fn LanguageSelect(
     set_value: WriteSignal<String>,
     include_auto: bool,
 ) -> impl IntoView {
+    let theme_context = use_theme_context();
+    
     view! {
         <div>
-            <label class="block text-sm font-medium themed-text mb-2">
+            <label class="block text-sm font-medium mb-2" style=move || theme_context.get().theme.text_style()>
                 {label}
             </label>
             <select 
-                class="w-full px-4 py-2 border rounded-md focus:ring-2 focus:border-transparent themed-input"
+                class="w-full px-4 py-2 rounded-md focus:ring-2 focus:border-transparent"
+                style=move || theme_context.get().theme.input_style()
                 prop:value=value
                 on:change=move |ev| {
                     set_value.set(event_target_value(&ev));

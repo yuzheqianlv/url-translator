@@ -5,9 +5,10 @@ use crate::services::{
 };
 use crate::types::api_types::AppConfig;
 use gloo_timers::future::TimeoutFuture;
+use std::collections::HashMap;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use std::io::Write;
+use tar::Builder;
 
 #[derive(Debug, Clone)]
 pub struct DocumentLink {
@@ -23,6 +24,8 @@ pub struct TranslatedDocument {
     pub original_content: String,
     pub translated_content: String,
     pub file_name: String,  // 文件保存名称
+    pub folder_path: String,  // 文件夹路径
+    pub selected: bool,       // 是否选中下载
 }
 
 #[derive(Debug, Clone)]
@@ -42,6 +45,36 @@ pub enum BatchStatus {
     Packaging,
     Completed,
     Failed(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct FolderStructure {
+    pub folders: HashMap<String, Vec<TranslatedDocument>>,
+    pub total_files: usize,
+    pub selected_files: usize,
+}
+
+impl FolderStructure {
+    pub fn new() -> Self {
+        Self {
+            folders: HashMap::new(),
+            total_files: 0,
+            selected_files: 0,
+        }
+    }
+
+    pub fn add_document(&mut self, doc: TranslatedDocument) {
+        let folder = doc.folder_path.clone();
+        self.folders.entry(folder).or_insert_with(Vec::new).push(doc);
+        self.total_files += 1;
+    }
+
+    pub fn update_selection_count(&mut self) {
+        self.selected_files = self.folders.values()
+            .flat_map(|docs| docs.iter())
+            .filter(|doc| doc.selected)
+            .count();
+    }
 }
 
 pub struct BatchTranslationService {
@@ -287,23 +320,75 @@ impl BatchTranslationService {
         // 恢复代码块
         let translated_content = content_processor.restore_code_blocks(&translated_protected);
 
-        // 生成文件名
-        let file_name = self.generate_file_name(link);
+        // 生成文件名和文件夹路径
+        let (folder_path, file_name) = self.generate_folder_structure(link);
 
         Ok(TranslatedDocument {
             link: link.clone(),
             original_content,
             translated_content,
             file_name,
+            folder_path,
+            selected: true,  // 默认选中
         })
     }
 
-    /// 生成文件名
-    fn generate_file_name(&self, link: &DocumentLink) -> String {
-        // 从URL中提取文件名，或使用标题
+    /// 生成文件夹结构和文件名（保持层级结构）
+    fn generate_folder_structure(&self, link: &DocumentLink) -> (String, String) {
+        let url_path = link.url.split('/').collect::<Vec<&str>>();
+        
+        // 提取路径信息来生成文件夹结构
+        let (folder_path, file_name) = if url_path.len() > 3 {
+            // 分析URL路径来创建合理的文件夹结构
+            let path_parts: Vec<&str> = url_path.iter().skip(3).copied().collect(); // 跳过 https://domain.com
+            
+            if path_parts.len() > 1 {
+                // 有子路径，创建文件夹结构
+                let folder_parts: Vec<String> = path_parts[..path_parts.len()-1]
+                    .iter()
+                    .map(|&part| self.clean_path_segment(part))
+                    .filter(|part| !part.is_empty())
+                    .collect();
+                
+                let folder_path = if folder_parts.is_empty() {
+                    "docs".to_string()
+                } else {
+                    format!("docs/{}", folder_parts.join("/"))
+                };
+                
+                (folder_path, self.generate_file_name_from_url_and_title(link))
+            } else {
+                // 只有一个文件，放在根目录
+                ("docs".to_string(), self.generate_file_name_from_url_and_title(link))
+            }
+        } else {
+            // URL太短，使用默认结构
+            ("docs".to_string(), self.generate_file_name_from_url_and_title(link))
+        };
+
+        (folder_path, file_name)
+    }
+
+    /// 清理路径段，移除无效字符
+    fn clean_path_segment(&self, segment: &str) -> String {
+        segment
+            .trim()
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .collect::<String>()
+            .trim_matches('_')
+            .to_string()
+    }
+
+    /// 根据URL和标题生成文件名
+    fn generate_file_name_from_url_and_title(&self, link: &DocumentLink) -> String {
+        // 首先尝试从URL提取文件名
         if let Some(path) = link.url.split('/').last() {
             if path.ends_with(".html") {
-                return path.replace(".html", ".md");
+                let base_name = path.replace(".html", "");
+                if !base_name.is_empty() && base_name != "index" {
+                    return format!("{}.md", self.clean_path_segment(&base_name));
+                }
             }
         }
         
@@ -311,63 +396,158 @@ impl BatchTranslationService {
         let safe_title = link.title
             .chars()
             .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-            .collect::<String>();
+            .collect::<String>()
+            .trim_matches('_')
+            .to_string();
         
-        format!("{:02}_{}.md", link.order + 1, safe_title)
+        let title_part = if safe_title.len() > 50 {
+            safe_title[..50].to_string()
+        } else {
+            safe_title
+        };
+        
+        format!("{:02}_{}.md", link.order + 1, title_part)
     }
 
-    /// 生成压缩归档文件（返回字节数组）
-    pub fn create_zip_archive(&self, documents: &[TranslatedDocument]) -> Result<Vec<u8>, String> {
-        web_sys::console::log_1(&"开始创建压缩归档文件".into());
-        
-        // 创建一个包含所有文档的文本文件
-        let mut all_content = String::new();
-        
-        // 添加目录和统计信息
-        all_content.push_str("# 翻译文档归档\n\n");
-        all_content.push_str(&format!("总共翻译了 {} 个文档\n", documents.len()));
-        all_content.push_str(&format!("归档时间: {}\n\n", js_sys::Date::new_0().to_string()));
-        
-        // 添加目录
-        all_content.push_str("## 文档目录\n\n");
-        for doc in documents {
-            all_content.push_str(&format!(
-                "{}. **{}**\n   - 原始URL: {}\n   - 文件名: {}\n\n",
-                doc.link.order + 1,
-                doc.link.title,
-                doc.link.url,
-                doc.file_name
-            ));
-        }
-        
-        all_content.push_str("\n---\n\n");
-        
-        // 添加所有翻译后的文档内容
-        for doc in documents {
-            all_content.push_str(&format!("# 文档 {}: {}\n\n", doc.link.order + 1, doc.link.title));
-            all_content.push_str(&format!("**原始URL**: {}\n\n", doc.link.url));
-            all_content.push_str("---\n\n");
-            all_content.push_str(&doc.translated_content);
-            all_content.push_str("\n\n");
-            all_content.push_str(&"=".repeat(80));
-            all_content.push_str("\n\n");
-        }
+    /// 生成文件名 (保留原有方法以兼容性)
+    fn generate_file_name(&self, link: &DocumentLink) -> String {
+        self.generate_file_name_from_url_and_title(link)
+    }
 
-        // 使用gzip压缩
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(all_content.as_bytes())
-            .map_err(|e| format!("压缩失败: {}", e))?;
+    /// 创建tar.gz归档文件包含选中的文档（保持文件夹结构）
+    pub fn create_compressed_archive(&self, documents: &[TranslatedDocument]) -> Result<Vec<u8>, String> {
+        web_sys::console::log_1(&"开始创建tar.gz归档文件".into());
+        
+        // 只处理选中的文档，按order排序
+        let mut selected_docs: Vec<&TranslatedDocument> = documents.iter()
+            .filter(|doc| doc.selected)
+            .collect();
+        
+        if selected_docs.is_empty() {
+            return Err("没有选中任何文档".to_string());
+        }
+        
+        // 按索引顺序排序
+        selected_docs.sort_by(|a, b| a.link.order.cmp(&b.link.order));
+        
+        // 创建gzip压缩的tar归档
+        let tar_data = Vec::new();
+        let encoder = GzEncoder::new(tar_data, Compression::default());
+        let mut tar = Builder::new(encoder);
+        
+        // 添加README.md文件
+        let readme_content = self.generate_readme_content(&selected_docs);
+        let readme_bytes = readme_content.as_bytes();
+        let mut header = tar::Header::new_gnu();
+        header.set_size(readme_bytes.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        
+        tar.append_data(&mut header, "README.md", std::io::Cursor::new(readme_bytes))
+            .map_err(|e| format!("无法添加README文件: {}", e))?;
+        
+        // 按文件夹分组并按顺序添加文档
+        for doc in &selected_docs {
+            let file_path = if doc.folder_path.is_empty() || doc.folder_path == "docs" {
+                // 在根目录下添加序号前缀
+                format!("{:03}_{}", doc.link.order + 1, doc.file_name)
+            } else {
+                // 在子文件夹下添加序号前缀
+                format!("{}/{:03}_{}", doc.folder_path, doc.link.order + 1, doc.file_name)
+            };
+
+            web_sys::console::log_1(&format!("添加文件: {}", file_path).into());
+
+            // 创建完整的文档内容，包含元数据
+            let mut file_content = String::new();
+            file_content.push_str(&format!("# {}\n\n", doc.link.title));
+            file_content.push_str(&format!("> **原始URL**: {}\n", doc.link.url));
+            file_content.push_str(&format!("> **翻译时间**: {}\n", js_sys::Date::new_0().to_locale_string("zh-CN", &js_sys::Object::new())));
+            file_content.push_str(&format!("> **文档序号**: {}\n\n", doc.link.order + 1));
+            file_content.push_str("---\n\n");
+            file_content.push_str(&doc.translated_content);
+
+            let file_bytes = file_content.as_bytes();
+            let mut header = tar::Header::new_gnu();
+            header.set_size(file_bytes.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            
+            tar.append_data(&mut header, &file_path, std::io::Cursor::new(file_bytes))
+                .map_err(|e| format!("无法添加文件 {}: {}", file_path, e))?;
+        }
+        
+        // 完成tar归档
+        let encoder = tar.into_inner()
+            .map_err(|e| format!("无法完成tar归档: {}", e))?;
         
         let compressed_data = encoder.finish()
-            .map_err(|e| format!("完成压缩失败: {}", e))?;
+            .map_err(|e| format!("无法完成gzip压缩: {}", e))?;
 
         web_sys::console::log_1(&format!(
-            "归档文件创建完成，原始大小: {} 字节，压缩后: {} 字节，压缩率: {:.1}%", 
-            all_content.len(),
-            compressed_data.len(),
-            (1.0 - compressed_data.len() as f64 / all_content.len() as f64) * 100.0
+            "tar.gz归档创建完成，包含 {} 个文档，压缩后大小: {} 字节",
+            selected_docs.len(),
+            compressed_data.len()
         ).into());
-        
+
         Ok(compressed_data)
+    }
+
+    /// 生成README内容
+    fn generate_readme_content(&self, documents: &[&TranslatedDocument]) -> String {
+        let mut content = String::new();
+        
+        content.push_str("# 翻译文档归档\n\n");
+        content.push_str(&format!("生成时间: {}\n", js_sys::Date::new_0().to_locale_string("zh-CN", &js_sys::Object::new())));
+        content.push_str(&format!("文档总数: {} 个\n\n", documents.len()));
+        
+        // 按文件夹分组显示目录
+        let mut folders: HashMap<String, Vec<&TranslatedDocument>> = HashMap::new();
+        for doc in documents {
+            folders.entry(doc.folder_path.clone())
+                .or_insert_with(Vec::new)
+                .push(doc);
+        }
+
+        content.push_str("## 文档目录\n\n");
+        
+        for (folder, docs) in folders {
+            if !folder.is_empty() && folder != "documents" {
+                content.push_str(&format!("### 📁 {}\n\n", folder));
+            }
+            
+            for doc in docs {
+                content.push_str(&format!(
+                    "- [{}]({})\n  - 原始URL: {}\n  - 文件路径: {}/{}\n\n",
+                    doc.link.title,
+                    doc.file_name,
+                    doc.link.url,
+                    if folder.is_empty() || folder == "documents" { "." } else { &folder },
+                    doc.file_name
+                ));
+            }
+        }
+        
+        content.push_str("---\n\n");
+        content.push_str("*此归档由URL翻译工具自动生成*\n");
+        
+        content
+    }
+
+    /// 为选中的文档创建单个文件下载
+    pub fn create_single_file_download(&self, document: &TranslatedDocument) -> Vec<u8> {
+        let mut content = String::new();
+        
+        // 添加文档头部信息
+        content.push_str(&format!("# {}\n\n", document.link.title));
+        content.push_str(&format!("> **原始URL**: {}\n", document.link.url));
+        content.push_str(&format!("> **翻译时间**: {}\n", js_sys::Date::new_0().to_locale_string("zh-CN", &js_sys::Object::new())));
+        content.push_str(&format!("> **文档序号**: {}\n\n", document.link.order + 1));
+        content.push_str("---\n\n");
+        
+        // 添加翻译内容
+        content.push_str(&document.translated_content);
+        
+        content.into_bytes()
     }
 }

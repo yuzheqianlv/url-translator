@@ -12,10 +12,45 @@ pub struct HistoryEntry {
     pub translated_content: String,
     pub created_at: String,
     pub word_count: usize,
+    #[serde(default = "default_entry_type")]
+    pub entry_type: HistoryEntryType,
+    #[serde(default)]
+    pub batch_data: Option<BatchTranslationData>,
+}
+
+fn default_entry_type() -> HistoryEntryType {
+    HistoryEntryType::SinglePage
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HistoryEntryType {
+    SinglePage,
+    BatchTranslation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchTranslationData {
+    pub total_documents: usize,
+    pub successful_documents: usize,
+    pub failed_documents: usize,
+    pub index_url: String,
+    pub document_list: Vec<BatchDocumentInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchDocumentInfo {
+    pub title: String,
+    pub url: String,
+    pub file_name: String,
+    pub folder_path: String,
+    pub order: usize,
+    pub translated: bool,
+    pub original_content: String,
+    pub translated_content: String,
 }
 
 impl HistoryEntry {
-    pub fn new(
+    pub fn new_single_page(
         url: String,
         title: String,
         source_lang: String,
@@ -37,7 +72,49 @@ impl HistoryEntry {
             translated_content,
             created_at,
             word_count,
+            entry_type: HistoryEntryType::SinglePage,
+            batch_data: None,
         }
+    }
+    
+    pub fn new_batch_translation(
+        index_url: String,
+        title: String,
+        source_lang: String,
+        target_lang: String,
+        batch_data: BatchTranslationData,
+    ) -> Self {
+        let word_count = batch_data.document_list.iter()
+            .map(|doc| doc.original_content.split_whitespace().count())
+            .sum();
+        let now = js_sys::Date::new_0();
+        let created_at = now.to_iso_string().as_string().unwrap();
+        
+        Self {
+            id: Uuid::new_v4().to_string(),
+            url: index_url,
+            title,
+            source_lang,
+            target_lang,
+            original_content: format!("批量翻译 {} 个文档", batch_data.total_documents),
+            translated_content: format!("成功: {}, 失败: {}", batch_data.successful_documents, batch_data.failed_documents),
+            created_at,
+            word_count,
+            entry_type: HistoryEntryType::BatchTranslation,
+            batch_data: Some(batch_data),
+        }
+    }
+    
+    // 保持向后兼容性
+    pub fn new(
+        url: String,
+        title: String,
+        source_lang: String,
+        target_lang: String,
+        original_content: String,
+        translated_content: String,
+    ) -> Self {
+        Self::new_single_page(url, title, source_lang, target_lang, original_content, translated_content)
     }
     
     pub fn get_summary(&self) -> String {
