@@ -22,7 +22,7 @@ impl JinaService {
         web_sys::console::log_1(&format!("发送请求到: {}", jina_url).into());
         
         let retry_config = RetryConfig::default();
-        let client = &self.client;
+        let _client = &self.client;
         let jina_url_clone = jina_url.clone();
         
         let result = retry_with_backoff(

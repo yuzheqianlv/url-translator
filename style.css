@@ -1,0 +1,109 @@
+/* Catppuccin Theme CSS Variables */
+:root {
+  /* Default theme variables will be set by the Rust theme system */
+}
+
+/* Themed color classes */
+.themed-text {
+  color: var(--color-text);
+}
+
+.themed-subtext {
+  color: var(--color-subtext1);
+}
+
+.themed-subtext0 {
+  color: var(--color-subtext0);
+}
+
+.themed-bg-base {
+  background-color: var(--color-base);
+}
+
+.themed-bg-surface0 {
+  background-color: var(--color-surface0);
+}
+
+.themed-bg-surface1 {
+  background-color: var(--color-surface1);
+}
+
+.themed-bg-surface2 {
+  background-color: var(--color-surface2);
+}
+
+.themed-border {
+  border-color: var(--color-surface2);
+}
+
+.themed-border-focus {
+  border-color: var(--color-blue);
+}
+
+/* Input theming */
+.themed-input {
+  background-color: var(--color-base);
+  color: var(--color-text);
+  border-color: var(--color-surface2);
+}
+
+.themed-input:focus {
+  border-color: var(--color-blue);
+  --tw-ring-color: var(--color-blue);
+}
+
+/* Button theming */
+.themed-button-primary {
+  background-color: var(--color-blue);
+  color: var(--color-base);
+}
+
+.themed-button-success {
+  background-color: var(--color-green);
+  color: var(--color-base);
+}
+
+.themed-button-danger {
+  background-color: var(--color-red);
+  color: var(--color-base);
+}
+
+.themed-button-secondary {
+  background-color: var(--color-surface1);
+  color: var(--color-text);
+}
+
+/* Alert theming */
+.themed-alert-error {
+  background-color: var(--color-red);
+  color: var(--color-base);
+  border-color: var(--color-maroon);
+}
+
+.themed-alert-info {
+  background-color: var(--color-blue);
+  color: var(--color-base);
+  border-color: var(--color-sapphire);
+}
+
+.themed-alert-success {
+  background-color: var(--color-green);
+  color: var(--color-base);
+  border-color: var(--color-teal);
+}
+
+/* Content area theming */
+.themed-content-bg {
+  background-color: var(--color-base);
+  color: var(--color-text);
+}
+
+/* Themed borders */
+.themed-border-t {
+  border-top-color: var(--color-surface1);
+}
+
+/* Progress/loading theming */
+.themed-progress {
+  color: var(--color-base);
+}

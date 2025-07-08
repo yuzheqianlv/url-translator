@@ -1,6 +1,7 @@
 use gloo_storage::{LocalStorage, Storage};
 use crate::types::api_types::AppConfig;
 
+#[derive(Debug, Clone)]
 pub struct ConfigService;
 
 impl ConfigService {

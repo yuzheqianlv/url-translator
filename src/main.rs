@@ -2,7 +2,11 @@ use leptos::mount_to_body;
 
 mod app;
 mod components;
+mod error;
+mod hooks;
+mod pages;
 mod services;
+mod theme;
 mod types;
 
 use app::App;
