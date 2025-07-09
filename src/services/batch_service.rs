@@ -1,5 +1,4 @@
 use crate::services::{
-    content_processor::ContentProcessor,
     deeplx_service::DeepLXService,
     file_naming_service::{FileNamingContext, FileNamingService},
     jina_service::JinaService,
@@ -56,6 +55,12 @@ pub struct FolderStructure {
     pub selected_files: usize,
 }
 
+impl Default for FolderStructure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FolderStructure {
     pub fn new() -> Self {
         Self {
@@ -69,7 +74,7 @@ impl FolderStructure {
         let folder = doc.folder_path.clone();
         self.folders
             .entry(folder)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(doc);
         self.total_files += 1;
     }
@@ -105,23 +110,29 @@ impl BatchTranslationService {
     pub async fn parse_document_index(&self, index_url: &str) -> Result<Vec<DocumentLink>, String> {
         web_sys::console::log_1(&"=== 开始解析文档索引 ===".into());
 
+        // 提取基础域名
+        let base_domain = self.extract_base_domain(index_url)
+            .ok_or_else(|| "无法解析输入URL的域名".to_string())?;
+        
+        web_sys::console::log_1(&format!("基础域名: {}", base_domain).into());
+
         // 提取索引页面内容
         let index_content = self
             .jina_service
             .extract_content(index_url, &self.config)
             .await
-            .map_err(|e| format!("无法提取索引页面内容: {}", e))?;
+            .map_err(|e| format!("无法提取索引页面内容: {e}"))?;
 
-        // 解析链接
-        let links = self.extract_links_from_content(&index_content);
+        // 解析链接（只保留相同域名的链接）
+        let links = self.extract_links_from_content(&index_content, &base_domain);
 
-        web_sys::console::log_1(&format!("解析完成，找到 {} 个文档链接", links.len()).into());
+        web_sys::console::log_1(&format!("解析完成，找到 {} 个同域名文档链接", links.len()).into());
 
         Ok(links)
     }
 
     /// 从内容中提取链接和目录结构
-    fn extract_links_from_content(&self, content: &str) -> Vec<DocumentLink> {
+    fn extract_links_from_content(&self, content: &str, base_domain: &str) -> Vec<DocumentLink> {
         let mut links = Vec::new();
         let mut order = 0;
 
@@ -129,7 +140,7 @@ impl BatchTranslationService {
             let trimmed = line.trim();
 
             // 查找包含链接的行
-            if let Some(link_info) = self.parse_link_line(trimmed) {
+            if let Some(link_info) = self.parse_link_line(trimmed, base_domain) {
                 let level = self.calculate_indent_level(line);
 
                 links.push(DocumentLink {
@@ -146,8 +157,8 @@ impl BatchTranslationService {
         links
     }
 
-    /// 解析单行中的链接信息 - 增强版
-    fn parse_link_line(&self, line: &str) -> Option<(String, String)> {
+    /// 解析单行中的链接信息 - 增强版（仅保留相同域名的链接）
+    fn parse_link_line(&self, line: &str, base_domain: &str) -> Option<(String, String)> {
         // 匹配 Markdown 链接格式 [title](url)
         if let Some(start) = line.find('[') {
             if let Some(middle) = line[start..].find("](") {
@@ -160,8 +171,8 @@ impl BatchTranslationService {
                     let title = line[title_start..title_end].trim();
                     let url = line[url_start..url_end].trim();
 
-                    // 增强的URL过滤条件
-                    if self.is_valid_documentation_url(url) && !title.is_empty() {
+                    // 检查是否为相同域名的有效文档URL
+                    if self.is_same_domain_documentation_url(url, base_domain) && !title.is_empty() {
                         // 清理标题中的特殊字符和编号
                         let clean_title = self.clean_title_enhanced(title);
                         if !clean_title.is_empty() && clean_title.len() > 1 {
@@ -172,6 +183,40 @@ impl BatchTranslationService {
             }
         }
         None
+    }
+
+    /// 从URL中提取基础域名
+    fn extract_base_domain(&self, url: &str) -> Option<String> {
+        if let Ok(parsed_url) = url::Url::parse(url) {
+            if let Some(host) = parsed_url.host_str() {
+                return Some(host.to_string());
+            }
+        }
+        None
+    }
+
+    /// 检查是否为相同域名的有效文档URL
+    fn is_same_domain_documentation_url(&self, url: &str, base_domain: &str) -> bool {
+        // 首先检查基本URL格式
+        if !self.is_valid_documentation_url(url) {
+            return false;
+        }
+
+        // 检查是否为相同域名
+        if let Some(url_domain) = self.extract_base_domain(url) {
+            // 完全匹配域名
+            if url_domain == base_domain {
+                return true;
+            }
+
+            // 检查子域名情况（如 docs.example.com 和 example.com）
+            if url_domain.ends_with(&format!(".{}", base_domain)) || 
+               base_domain.ends_with(&format!(".{}", url_domain)) {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// 验证是否为有效的文档URL - 增强版
@@ -373,7 +418,9 @@ impl BatchTranslationService {
         // 如果没有编号，通过缩进和列表标记判断级别
         // 首先检查制表符缩进
         let tabs = line.chars().take_while(|&c| c == '\t').count();
-        let indent_level = if tabs > 0 {
+        
+
+        if tabs > 0 {
             std::cmp::min(tabs, 3)
         } else {
             // 按空格缩进计算，每4个空格算一级
@@ -386,9 +433,7 @@ impl BatchTranslationService {
             } else {
                 base_level
             }
-        };
-
-        indent_level
+        }
     }
 
     /// 清理标题，移除编号和特殊字符
@@ -398,7 +443,7 @@ impl BatchTranslationService {
 
         // 移除开头的数字编号
         if let Some(pos) = clean.find('.') {
-            if let Ok(_) = clean[..pos].trim().parse::<i32>() {
+            if clean[..pos].trim().parse::<i32>().is_ok() {
                 return clean[pos + 1..].trim().to_string();
             }
         }
@@ -407,6 +452,21 @@ impl BatchTranslationService {
     }
 
     /// 批量翻译文档
+    /// 
+    /// 这个方法实现了优化的批量翻译功能，包括：
+    /// - 智能重试机制
+    /// - 动态延迟调整
+    /// - 实时进度反馈
+    /// - 错误恢复处理
+    /// 
+    /// # 参数
+    /// 
+    /// * `links` - 要翻译的文档链接列表
+    /// * `progress_callback` - 进度回调函数
+    /// 
+    /// # 返回值
+    /// 
+    /// 返回成功翻译的文档列表，失败的文档会被跳过
     pub async fn batch_translate(
         &self,
         links: Vec<DocumentLink>,
@@ -433,9 +493,9 @@ impl BatchTranslationService {
                 status: BatchStatus::Translating,
             });
 
-            // 增加重试机制
+            // 优化的重试机制
             let mut retry_count = 0;
-            let max_retries = 3;
+            let max_retries = 2; // 减少重试次数
 
             loop {
                 match self.translate_single_document(link).await {
@@ -459,10 +519,10 @@ impl BatchTranslationService {
                             web_sys::console::log_1(&format!("✗ 最终失败: {}", link.title).into());
                             break;
                         } else {
-                            // 重试前等待更长时间
-                            let retry_delay = 2000 * retry_count as u32;
+                            // 指数退避重试延迟
+                            let retry_delay = 1000 * (2_u32.pow(retry_count as u32));
                             web_sys::console::log_1(
-                                &format!("等待 {}ms 后重试...", retry_delay).into(),
+                                &format!("等待 {retry_delay}ms 后重试...").into(),
                             );
                             TimeoutFuture::new(retry_delay).await;
                         }
@@ -470,13 +530,18 @@ impl BatchTranslationService {
                 }
             }
 
-            // 每个文档之间的基本延迟
-            TimeoutFuture::new(1500).await;
+            // 动态调整延迟时间（根据成功率）
+            let delay = if failed_count == 0 {
+                1000 // 无错误时减少延迟
+            } else {
+                2000 // 有错误时增加延迟
+            };
+            TimeoutFuture::new(delay).await;
 
-            // 每处理5个文档后，额外休息一下
-            if (index + 1) % 5 == 0 {
+            // 每处理10个文档后，额外休息一下（减少休息频率）
+            if (index + 1) % 10 == 0 {
                 web_sys::console::log_1(&"批量处理中途休息...".into());
-                TimeoutFuture::new(3000).await;
+                TimeoutFuture::new(2000).await; // 缩短休息时间
             }
         }
 
@@ -518,29 +583,18 @@ impl BatchTranslationService {
                 }
                 content
             }
-            Err(e) => return Err(format!("提取内容失败: {}", e)),
+            Err(e) => return Err(format!("提取内容失败: {e}")),
         };
 
         web_sys::console::log_1(
             &format!("内容提取成功，长度: {} 字符", original_content.len()).into(),
         );
 
-        // 保护代码块
-        let mut content_processor = ContentProcessor::new();
-        let protected_content = content_processor.protect_code_blocks(&original_content);
-        let protection_stats = content_processor.get_protection_stats();
-
-        if protection_stats.total_blocks() > 0 {
-            web_sys::console::log_1(
-                &format!("代码块保护: {}", protection_stats.get_summary()).into(),
-            );
-        }
-
-        // 翻译内容
-        let translated_protected = match self
+        // 直接翻译内容（简化保护机制）
+        let translated_content = match self
             .deeplx_service
             .translate(
-                &protected_content,
+                &original_content,
                 &self.config.default_source_lang,
                 &self.config.default_target_lang,
                 &self.config,
@@ -553,15 +607,12 @@ impl BatchTranslationService {
                 }
                 content
             }
-            Err(e) => return Err(format!("翻译失败: {}", e)),
+            Err(e) => return Err(format!("翻译失败: {e}")),
         };
 
         web_sys::console::log_1(
-            &format!("翻译成功，长度: {} 字符", translated_protected.len()).into(),
+            &format!("翻译成功，长度: {} 字符", translated_content.len()).into(),
         );
-
-        // 恢复代码块
-        let translated_content = content_processor.restore_code_blocks(&translated_protected);
 
         // 生成包含路径信息的文件名
         let enhanced_title = self.create_enhanced_title_with_path(&link.url, &link.title);
@@ -656,7 +707,7 @@ impl BatchTranslationService {
     /// 根据URL和标题生成文件名
     fn generate_file_name_from_url_and_title(&self, link: &DocumentLink) -> String {
         // 首先尝试从URL提取文件名
-        if let Some(path) = link.url.split('/').last() {
+        if let Some(path) = link.url.split('/').next_back() {
             if path.ends_with(".html") {
                 let base_name = path.replace(".html", "");
                 if !base_name.is_empty() && base_name != "index" {
@@ -726,7 +777,7 @@ impl BatchTranslationService {
         header.set_cksum();
 
         tar.append_data(&mut header, "README.md", std::io::Cursor::new(readme_bytes))
-            .map_err(|e| format!("无法添加README文件: {}", e))?;
+            .map_err(|e| format!("无法添加README文件: {e}"))?;
 
         // 按文件夹分组并按顺序添加文档
         for doc in &selected_docs {
@@ -743,7 +794,7 @@ impl BatchTranslationService {
                 )
             };
 
-            web_sys::console::log_1(&format!("添加文件: {}", file_path).into());
+            web_sys::console::log_1(&format!("添加文件: {file_path}").into());
 
             // 创建完整的文档内容，包含元数据
             let mut file_content = String::new();
@@ -764,17 +815,17 @@ impl BatchTranslationService {
             header.set_cksum();
 
             tar.append_data(&mut header, &file_path, std::io::Cursor::new(file_bytes))
-                .map_err(|e| format!("无法添加文件 {}: {}", file_path, e))?;
+                .map_err(|e| format!("无法添加文件 {file_path}: {e}"))?;
         }
 
         // 完成tar归档
         let encoder = tar
             .into_inner()
-            .map_err(|e| format!("无法完成tar归档: {}", e))?;
+            .map_err(|e| format!("无法完成tar归档: {e}"))?;
 
         let compressed_data = encoder
             .finish()
-            .map_err(|e| format!("无法完成gzip压缩: {}", e))?;
+            .map_err(|e| format!("无法完成gzip压缩: {e}"))?;
 
         web_sys::console::log_1(
             &format!(
@@ -804,7 +855,7 @@ impl BatchTranslationService {
         for doc in documents {
             folders
                 .entry(doc.folder_path.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(doc);
         }
 
@@ -812,7 +863,7 @@ impl BatchTranslationService {
 
         for (folder, docs) in folders {
             if !folder.is_empty() && folder != "documents" {
-                content.push_str(&format!("### 📁 {}\n\n", folder));
+                content.push_str(&format!("### 📁 {folder}\n\n"));
             }
 
             for doc in docs {

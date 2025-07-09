@@ -1,5 +1,6 @@
 use crate::hooks::use_batch_translation::use_batch_translation;
 use crate::services::batch_service::BatchStatus;
+use crate::components::bilingual_display::DisplayMode;
 use leptos::*;
 use wasm_bindgen::JsCast;
 
@@ -173,6 +174,7 @@ fn TranslationResults(
     docs: ReadSignal<Vec<crate::services::batch_service::TranslatedDocument>>,
 ) -> impl IntoView {
     let (select_all, set_select_all) = create_signal(true);
+    let (display_mode, set_display_mode) = create_signal(DisplayMode::TranslationOnly);
 
     // 创建文档选择状态的 RwSignal
     let docs_selection = create_rw_signal(docs.get_untracked());
@@ -226,6 +228,27 @@ fn TranslationResults(
             return;
         }
 
+        // 根据显示模式处理文档内容
+        let processed_docs = match display_mode.get() {
+            DisplayMode::TranslationOnly => selected_docs.clone(),
+            DisplayMode::OriginalOnly => {
+                // 生成只包含原文的文档
+                selected_docs.iter().map(|doc| {
+                    let mut new_doc = doc.clone();
+                    new_doc.translated_content = new_doc.original_content.clone();
+                    new_doc
+                }).collect()
+            },
+            DisplayMode::Bilingual => {
+                // 生成双语对照文档
+                selected_docs.iter().map(|doc| {
+                    let mut new_doc = doc.clone();
+                    new_doc.translated_content = create_bilingual_markdown(&new_doc.original_content, &new_doc.translated_content);
+                    new_doc
+                }).collect()
+            }
+        };
+
         // 创建批量翻译服务实例并生成ZIP
         use crate::services::batch_service::BatchTranslationService;
         use crate::types::api_types::AppConfig;
@@ -233,7 +256,7 @@ fn TranslationResults(
         let config = AppConfig::default();
         let service = BatchTranslationService::new(&config);
 
-        match service.create_compressed_archive(&selected_docs) {
+        match service.create_compressed_archive(&processed_docs) {
             Ok(zip_data) => {
                 // 触发下载
                 let array = js_sys::Array::new();
@@ -268,7 +291,7 @@ fn TranslationResults(
                 );
             }
             Err(e) => {
-                web_sys::console::log_1(&format!("下载失败: {}", e).into());
+                web_sys::console::log_1(&format!("下载失败: {e}").into());
             }
         }
     };
@@ -280,6 +303,27 @@ fn TranslationResults(
                     "翻译结果 (" {move || docs_selection.get().len()} " 个文档)"
                 </h3>
                 <div class="flex items-center gap-3">
+                    // 显示模式切换器
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-700 dark:text-gray-300">"显示模式:"</span>
+                        <select
+                            class="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            on:change=move |ev| {
+                                let value = event_target_value(&ev);
+                                let mode = match value.as_str() {
+                                    "original" => DisplayMode::OriginalOnly,
+                                    "bilingual" => DisplayMode::Bilingual,
+                                    _ => DisplayMode::TranslationOnly,
+                                };
+                                set_display_mode.set(mode);
+                            }
+                        >
+                            <option value="translation">"仅译文"</option>
+                            <option value="original">"仅原文"</option>
+                            <option value="bilingual">"双语对照"</option>
+                        </select>
+                    </div>
+                    
                     <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                         <input
                             type="checkbox"
@@ -295,7 +339,13 @@ fn TranslationResults(
                         on:click=download_selected
                         prop:disabled=move || docs_selection.get().iter().all(|doc| !doc.selected)
                     >
-                        "下载选中文档"
+                        {move || {
+                            match display_mode.get() {
+                                DisplayMode::TranslationOnly => "下载译文",
+                                DisplayMode::OriginalOnly => "下载原文",
+                                DisplayMode::Bilingual => "下载双语对照",
+                            }
+                        }}
                     </button>
                 </div>
             </div>
@@ -314,7 +364,11 @@ fn TranslationResults(
                 </p>
 
                 // 显示文档列表（按序号排序）
-                <DocumentFolderView docs_selection=docs_selection toggle_doc_selection=toggle_doc_selection />
+                <DocumentFolderView 
+                    docs_selection=docs_selection 
+                    toggle_doc_selection=toggle_doc_selection 
+                    display_mode=display_mode
+                />
             </div>
         </div>
     }
@@ -324,6 +378,7 @@ fn TranslationResults(
 fn DocumentFolderView(
     docs_selection: RwSignal<Vec<crate::services::batch_service::TranslatedDocument>>,
     toggle_doc_selection: impl Fn(usize) + 'static + Copy,
+    display_mode: ReadSignal<DisplayMode>,
 ) -> impl IntoView {
     view! {
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -378,7 +433,25 @@ fn DocumentFolderView(
 
                                                         let config = AppConfig::default();
                                                         let service = BatchTranslationService::new(&config);
-                                                        let file_data = service.create_single_file_download(&doc);
+                                                        
+                                                        // 根据显示模式处理单个文档
+                                                        let mut processed_doc = doc.clone();
+                                                        match display_mode.get() {
+                                                            DisplayMode::OriginalOnly => {
+                                                                processed_doc.translated_content = processed_doc.original_content.clone();
+                                                            },
+                                                            DisplayMode::Bilingual => {
+                                                                processed_doc.translated_content = create_bilingual_markdown(
+                                                                    &processed_doc.original_content, 
+                                                                    &processed_doc.translated_content
+                                                                );
+                                                            },
+                                                            DisplayMode::TranslationOnly => {
+                                                                // 保持原样
+                                                            }
+                                                        }
+                                                        
+                                                        let file_data = service.create_single_file_download(&processed_doc);
 
                                                         let array = js_sys::Array::new();
                                                         array.push(&js_sys::Uint8Array::from(&file_data[..]));
@@ -427,11 +500,10 @@ fn generate_smart_archive_name(url: &str) -> String {
     let seconds = date.get_seconds();
 
     let timestamp = format!(
-        "{:04}{:02}{:02}_{:02}{:02}{:02}",
-        year, month, day, hours, minutes, seconds
+        "{year:04}{month:02}{day:02}_{hours:02}{minutes:02}{seconds:02}"
     );
 
-    format!("{}_{}.tar.gz", clean_domain, timestamp)
+    format!("{clean_domain}_{timestamp}.tar.gz")
 }
 
 /// 清理域名，移除特殊字符
@@ -465,4 +537,25 @@ fn extract_domain_from_url(url: &str) -> String {
     } else {
         "docs".to_string()
     }
+}
+
+/// 创建双语对照 Markdown 内容
+fn create_bilingual_markdown(original: &str, translated: &str) -> String {
+    use crate::components::bilingual_display::create_bilingual_pairs;
+    
+    let bilingual_pairs = create_bilingual_pairs(original, translated);
+    let mut result = String::new();
+    
+    for (translation, original_text) in bilingual_pairs {
+        if !translation.trim().is_empty() {
+            result.push_str(&translation);
+            result.push_str("\n\n");
+        }
+        if !original_text.trim().is_empty() {
+            result.push_str(&original_text);
+            result.push_str("\n\n");
+        }
+    }
+    
+    result.trim_end().to_string()
 }

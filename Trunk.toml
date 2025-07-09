@@ -6,5 +6,6 @@ dist = "dist"
 watch = ["src", "index.html"]
 
 [serve]
-# 不指定 address 和 port，让 Trunk 自动选择
+# 设置默认端口为3001
+port = 3001
 open = true

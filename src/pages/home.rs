@@ -1,5 +1,5 @@
 use crate::components::{
-    FileNamePreview, PreviewPanel, ProgressIndicator, TranslationResult, UrlInput,
+    BilingualDisplay, DisplayMode, FileNamePreview, PreviewPanel, ProgressIndicator, UrlInput,
 };
 use crate::hooks::use_config::use_config;
 use crate::hooks::use_translation::use_translation;
@@ -18,6 +18,7 @@ pub fn HomePage() -> impl IntoView {
     let config_hook = use_config();
     let (url, set_url) = create_signal(String::new());
     let (show_preview, set_show_preview) = create_signal(false);
+    let (display_mode, set_display_mode) = create_signal(DisplayMode::Bilingual);
 
     let handle_translate = move |_| {
         let url_value = url.get();
@@ -25,7 +26,18 @@ pub fn HomePage() -> impl IntoView {
     };
 
     let download_markdown = move |_| {
-        let content = translation.translation_result.get();
+        // 根据显示模式决定下载内容
+        let content = match display_mode.get() {
+            DisplayMode::TranslationOnly => translation.translation_result.get(),
+            DisplayMode::OriginalOnly => translation.original_content.get(),
+            DisplayMode::Bilingual => {
+                // 创建双语对照内容
+                let original = translation.original_content.get();
+                let translated = translation.translation_result.get();
+                create_bilingual_markdown(&original, &translated)
+            }
+        };
+        
         if content.is_empty() {
             return;
         }
@@ -176,9 +188,12 @@ pub fn HomePage() -> impl IntoView {
                 show_preview=show_preview
             />
 
-            <TranslationResult
-                translation_result=translation.translation_result
+            <BilingualDisplay
+                original_content=translation.original_content
+                translated_content=translation.translation_result
+                display_mode=display_mode
                 on_download=download_markdown
+                on_mode_change=move |mode| set_display_mode.set(mode)
             />
         </div>
     }
@@ -245,7 +260,7 @@ fn extract_title_from_url(url: &str) -> String {
     if let Ok(parsed_url) = url::Url::parse(url) {
         // 获取路径的最后一部分
         let path = parsed_url.path();
-        if let Some(last_segment) = path.split('/').last() {
+        if let Some(last_segment) = path.split('/').next_back() {
             if !last_segment.is_empty() && last_segment != "index.html" {
                 // 移除文件扩展名
                 let name = last_segment.split('.').next().unwrap_or(last_segment);
@@ -262,4 +277,62 @@ fn extract_title_from_url(url: &str) -> String {
     }
 
     "translated_content".to_string()
+}
+
+/// 创建双语对照的Markdown内容
+fn create_bilingual_markdown(original: &str, translated: &str) -> String {
+    if original.is_empty() || translated.is_empty() {
+        return if !translated.is_empty() {
+            translated.to_string()
+        } else {
+            original.to_string()
+        };
+    }
+
+    let original_lines: Vec<&str> = original.lines().collect();
+    let translated_lines: Vec<&str> = translated.lines().collect();
+    
+    let mut result = Vec::new();
+    let max_len = original_lines.len().max(translated_lines.len());
+    
+    // 添加双语模式说明
+    result.push("<!-- 双语对照模式：译文在前，原文在后 -->".to_string());
+    result.push("".to_string());
+    
+    for i in 0..max_len {
+        let original_line = original_lines.get(i).unwrap_or(&"").trim();
+        let translated_line = translated_lines.get(i).unwrap_or(&"").trim();
+        
+        // 如果是空行，只添加一个空行
+        if original_line.is_empty() && translated_line.is_empty() {
+            result.push("".to_string());
+            continue;
+        }
+        
+        // 如果只有一个是空行，添加非空的那一行
+        if original_line.is_empty() && !translated_line.is_empty() {
+            result.push(translated_line.to_string());
+            continue;
+        }
+        
+        if translated_line.is_empty() && !original_line.is_empty() {
+            result.push(original_line.to_string());
+            continue;
+        }
+        
+        // 两行都不为空，按译文、原文的顺序添加
+        if !translated_line.is_empty() {
+            result.push(translated_line.to_string());
+        }
+        
+        if !original_line.is_empty() {
+            // 为原文添加引用格式以便区分
+            result.push(format!("> {}", original_line));
+        }
+        
+        // 段落之间添加空行
+        result.push("".to_string());
+    }
+    
+    result.join("\n")
 }
