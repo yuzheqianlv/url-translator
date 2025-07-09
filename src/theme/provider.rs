@@ -1,5 +1,5 @@
-use leptos::*;
 use crate::theme::{CatppuccinTheme, ThemeVariant};
+use leptos::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ThemeContext {
@@ -19,7 +19,7 @@ impl Default for ThemeContext {
 #[component]
 pub fn ThemeProvider(children: Children) -> impl IntoView {
     let (theme_variant, set_theme_variant) = create_signal(ThemeVariant::default());
-    
+
     // Load theme from localStorage
     create_effect(move |_| {
         if let Some(storage) = web_sys::window().unwrap().local_storage().unwrap() {
@@ -36,7 +36,7 @@ pub fn ThemeProvider(children: Children) -> impl IntoView {
         let variant = theme_variant.get();
         let theme = CatppuccinTheme::get_theme(&variant);
         theme.apply_to_document();
-        
+
         // Save to localStorage
         if let Some(storage) = web_sys::window().unwrap().local_storage().unwrap() {
             if let Ok(serialized) = serde_json::to_string(&variant) {
@@ -56,7 +56,7 @@ pub fn ThemeProvider(children: Children) -> impl IntoView {
 
     provide_context((theme_variant, set_theme_variant));
     provide_context(theme_context);
-    
+
     children()
 }
 

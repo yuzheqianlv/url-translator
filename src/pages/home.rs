@@ -1,32 +1,59 @@
+use crate::components::{
+    FileNamePreview, PreviewPanel, ProgressIndicator, TranslationResult, UrlInput,
+};
+use crate::hooks::use_config::use_config;
+use crate::hooks::use_translation::use_translation;
+use crate::services::file_naming_service::{FileNamingContext, FileNamingService};
+use crate::theme::use_theme_context;
+use chrono::Utc;
 use leptos::*;
 use leptos_router::*;
 use wasm_bindgen::prelude::*;
 use web_sys::{window, Blob, Url};
-use crate::hooks::use_translation::use_translation;
-use crate::components::{UrlInput, TranslationResult, ProgressIndicator, PreviewPanel};
-use crate::theme::use_theme_context;
 
 #[component]
 pub fn HomePage() -> impl IntoView {
     let translation = use_translation();
     let theme_context = use_theme_context();
+    let config_hook = use_config();
     let (url, set_url) = create_signal(String::new());
     let (show_preview, set_show_preview) = create_signal(false);
-    
+
     let handle_translate = move |_| {
         let url_value = url.get();
         translation.translate.set(Some(url_value));
     };
-    
+
     let download_markdown = move |_| {
         let content = translation.translation_result.get();
         if content.is_empty() {
             return;
         }
-        
-        let _ = create_and_download_file(&content, "translated_content.md", "text/markdown");
+
+        // 使用智能文件命名服务生成文件名
+        let current_url = url.get();
+        let config = config_hook.config.get();
+        let mut naming_service = FileNamingService::new(config.file_naming);
+
+        // 从翻译结果中提取标题（如果有的话）
+        let title = extract_title_from_content(&content).unwrap_or_else(|| {
+            // 如果无法从内容中提取标题，尝试从URL中提取
+            extract_title_from_url(&current_url)
+        });
+
+        let context = FileNamingContext {
+            url: current_url,
+            title,
+            order: None,
+            timestamp: Utc::now(),
+            content_type: "article".to_string(),
+            folder_path: None,
+        };
+
+        let naming_result = naming_service.generate_file_name(&context);
+        let _ = create_and_download_file(&content, &naming_result.file_name, "text/markdown");
     };
-    
+
     view! {
         <div class="max-w-4xl mx-auto space-y-6">
             <div class="text-center">
@@ -62,7 +89,7 @@ pub fn HomePage() -> impl IntoView {
                 </div>
 
                 // 批量翻译卡片
-                <div class="rounded-lg shadow-lg p-6 transition-all hover:shadow-xl cursor-pointer" 
+                <div class="rounded-lg shadow-lg p-6 transition-all hover:shadow-xl cursor-pointer"
                      style=move || theme_context.get().theme.card_style()
                      on:click=move |_| {
                          let navigate = use_navigate();
@@ -87,16 +114,16 @@ pub fn HomePage() -> impl IntoView {
                     </div>
                 </div>
             </div>
-            
+
             <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
                 <div class="space-y-4">
-                    <UrlInput 
+                    <UrlInput
                         url=url
                         set_url=set_url
                         on_submit=handle_translate
                         is_loading=translation.is_loading
                     />
-                    
+
                     // 预览切换按钮
                     <div class="flex items-center gap-4">
                         <button
@@ -122,27 +149,34 @@ pub fn HomePage() -> impl IntoView {
                             </svg>
                             {move || if show_preview.get() { "隐藏预览" } else { "显示预览" }}
                         </button>
-                        
+
                         <span class="text-xs text-gray-500 dark:text-gray-400">
                             "预览功能可以在正式翻译前查看前几段的翻译效果"
                         </span>
                     </div>
-                    
-                    <ProgressIndicator 
+
+                    <ProgressIndicator
                         is_loading=translation.is_loading
                         progress_message=translation.progress_message
                         status=translation.status
                     />
+
+                    // 文件名预览
+                    <Show when=move || !url.get().is_empty()>
+                        <FileNamePreview
+                            url=url
+                        />
+                    </Show>
                 </div>
             </div>
 
             // 预览面板
-            <PreviewPanel 
+            <PreviewPanel
                 url=url
                 show_preview=show_preview
             />
 
-            <TranslationResult 
+            <TranslationResult
                 translation_result=translation.translation_result
                 on_download=download_markdown
             />
@@ -150,28 +184,82 @@ pub fn HomePage() -> impl IntoView {
     }
 }
 
-fn create_and_download_file(content: &str, filename: &str, _mime_type: &str) -> Result<(), JsValue> {
+fn create_and_download_file(
+    content: &str,
+    filename: &str,
+    _mime_type: &str,
+) -> Result<(), JsValue> {
     let window = window().ok_or("No window object")?;
     let document = window.document().ok_or("No document object")?;
-    
+
     let blob_parts = js_sys::Array::new();
     blob_parts.push(&JsValue::from_str(content));
-    
+
     let blob = Blob::new_with_str_sequence(&blob_parts)?;
     let url = Url::create_object_url_with_blob(&blob)?;
-    
+
     let anchor = document.create_element("a")?;
     anchor.set_attribute("href", &url)?;
     anchor.set_attribute("download", filename)?;
     anchor.set_attribute("style", "display: none")?;
-    
+
     document.body().unwrap().append_child(&anchor)?;
-    
+
     let html_anchor = anchor.dyn_ref::<web_sys::HtmlAnchorElement>().unwrap();
     html_anchor.click();
-    
+
     document.body().unwrap().remove_child(&anchor)?;
     Url::revoke_object_url(&url)?;
-    
+
     Ok(())
+}
+
+/// 从Markdown内容中提取标题
+fn extract_title_from_content(content: &str) -> Option<String> {
+    // 寻找第一个一级标题
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("# ") && line.len() > 2 {
+            return Some(line[2..].trim().to_string());
+        }
+    }
+
+    // 寻找第一个二级标题
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("## ") && line.len() > 3 {
+            return Some(line[3..].trim().to_string());
+        }
+    }
+
+    None
+}
+
+/// 从URL中提取标题
+fn extract_title_from_url(url: &str) -> String {
+    if url.is_empty() {
+        return "translated_content".to_string();
+    }
+
+    // 尝试解析URL
+    if let Ok(parsed_url) = url::Url::parse(url) {
+        // 获取路径的最后一部分
+        let path = parsed_url.path();
+        if let Some(last_segment) = path.split('/').last() {
+            if !last_segment.is_empty() && last_segment != "index.html" {
+                // 移除文件扩展名
+                let name = last_segment.split('.').next().unwrap_or(last_segment);
+                if !name.is_empty() {
+                    return name.to_string();
+                }
+            }
+        }
+
+        // 如果路径不能提供有用信息，使用域名
+        if let Some(domain) = parsed_url.domain() {
+            return domain.replace('.', "_");
+        }
+    }
+
+    "translated_content".to_string()
 }

@@ -1,5 +1,5 @@
-use leptos::*;
 use crate::error::{AppError, ErrorContext, ErrorSeverity};
+use leptos::*;
 use std::collections::VecDeque;
 
 const MAX_ERROR_HISTORY: usize = 50;
@@ -32,13 +32,13 @@ impl ErrorHandler {
             error_state: create_rw_signal(ErrorState::default()),
         }
     }
-    
+
     /// 处理错误并显示给用户
     pub fn handle_error(&self, error: AppError) {
         let context = ErrorContext::new(error);
         self.set_error(context);
     }
-    
+
     /// 设置错误上下文
     pub fn set_error(&self, context: ErrorContext) {
         self.error_state.update(|state| {
@@ -47,19 +47,19 @@ impl ErrorHandler {
             if state.error_history.len() > MAX_ERROR_HISTORY {
                 state.error_history.pop_front();
             }
-            
+
             // 设置当前错误
             state.current_error = Some(context);
             state.is_visible = true;
         });
-        
+
         // 根据严重程度自动设置显示时间
         let auto_hide_delay = match self.get_current_severity() {
             Some(ErrorSeverity::Low) => Some(3000),
             Some(ErrorSeverity::Medium) => Some(5000),
             _ => None, // High 和 Critical 需要手动关闭
         };
-        
+
         if let Some(delay) = auto_hide_delay {
             let error_handler = self.clone();
             spawn_local(async move {
@@ -68,7 +68,7 @@ impl ErrorHandler {
             });
         }
     }
-    
+
     /// 清除当前错误
     pub fn clear_error(&self) {
         self.error_state.update(|state| {
@@ -76,14 +76,14 @@ impl ErrorHandler {
             state.is_visible = false;
         });
     }
-    
+
     /// 隐藏错误显示（但保留在上下文中）
     pub fn hide_error(&self) {
         self.error_state.update(|state| {
             state.is_visible = false;
         });
     }
-    
+
     /// 显示错误
     pub fn show_error(&self) {
         self.error_state.update(|state| {
@@ -92,52 +92,60 @@ impl ErrorHandler {
             }
         });
     }
-    
+
     /// 获取当前错误
     pub fn get_current_error(&self) -> Option<ErrorContext> {
         self.error_state.get().current_error
     }
-    
+
     /// 获取当前错误的严重程度
     pub fn get_current_severity(&self) -> Option<ErrorSeverity> {
         self.get_current_error().map(|ctx| ctx.severity)
     }
-    
+
     /// 检查是否有错误显示
     pub fn is_error_visible(&self) -> bool {
         self.error_state.get().is_visible
     }
-    
+
     /// 获取错误历史
     pub fn get_error_history(&self) -> Vec<ErrorContext> {
-        self.error_state.get().error_history.iter().cloned().collect()
+        self.error_state
+            .get()
+            .error_history
+            .iter()
+            .cloned()
+            .collect()
     }
-    
+
     /// 清空错误历史
     pub fn clear_history(&self) {
         self.error_state.update(|state| {
             state.error_history.clear();
         });
     }
-    
+
     /// 重试当前错误对应的操作
     pub fn retry_current(&self) -> Option<ErrorContext> {
-        self.error_state.get().current_error.map(|ctx| ctx.increment_retry())
+        self.error_state
+            .get()
+            .current_error
+            .map(|ctx| ctx.increment_retry())
     }
-    
+
     /// 检查当前错误是否可以重试
     pub fn can_retry_current(&self, max_retries: u32) -> bool {
         self.get_current_error()
             .map(|ctx| ctx.can_retry(max_retries))
             .unwrap_or(false)
     }
-    
+
     /// 创建错误信号，用于组件中监听错误状态
     pub fn create_error_signal(&self) -> (Memo<Option<ErrorContext>>, Memo<bool>) {
         let error_state = self.error_state;
         let current_error = create_memo(move |_| error_state.get().current_error);
         let is_visible = create_memo(move |_| error_state.get().is_visible);
-        
+
         (current_error, is_visible)
     }
 }
@@ -167,7 +175,7 @@ pub fn use_error_handler() -> ErrorHandler {
 pub fn ErrorDisplay() -> impl IntoView {
     let error_handler = use_error_handler();
     let error_state = error_handler.error_state;
-    
+
     view! {
         <Show when=move || error_state.get().is_visible>
             <ErrorCard error_handler=error_handler />
@@ -187,12 +195,12 @@ fn ErrorCard(error_handler: ErrorHandler) -> impl IntoView {
                         ErrorSeverity::High => "themed-alert-error",
                         ErrorSeverity::Critical => "themed-alert-error",
                     };
-                    
+
                     let icon = match ctx.severity {
                         ErrorSeverity::Low | ErrorSeverity::Medium => "ℹ️",
                         ErrorSeverity::High | ErrorSeverity::Critical => "⚠️",
                     };
-                    
+
                     view! {
                         <div class=format!("flex items-start space-x-3 {}", severity_class)>
                             <span class="text-lg">{icon}</span>
@@ -200,7 +208,7 @@ fn ErrorCard(error_handler: ErrorHandler) -> impl IntoView {
                                 <div class="font-medium mb-1">
                                     {ctx.user_message.clone()}
                                 </div>
-                                
+
                                 {if !ctx.suggested_actions.is_empty() {
                                     view! {
                                         <div class="text-sm mt-2">
@@ -215,10 +223,10 @@ fn ErrorCard(error_handler: ErrorHandler) -> impl IntoView {
                                 } else {
                                     view! {}.into_view()
                                 }}
-                                
+
                                 {if error_handler.can_retry_current(3) {
                                     view! {
-                                        <button 
+                                        <button
                                             class="mt-2 px-3 py-1 text-sm themed-button-secondary rounded"
                                             on:click=move |_| error_handler.clear_error()
                                         >
@@ -229,8 +237,8 @@ fn ErrorCard(error_handler: ErrorHandler) -> impl IntoView {
                                     view! {}.into_view()
                                 }}
                             </div>
-                            
-                            <button 
+
+                            <button
                                 class="text-lg leading-none"
                                 on:click=move |_| error_handler.clear_error()
                             >

@@ -1,8 +1,11 @@
+use crate::error::{use_error_handler, AppError};
+use crate::services::{
+    config_service::ConfigService, content_processor::ContentProcessor,
+    deeplx_service::DeepLXService, history_service::HistoryService, jina_service::JinaService,
+};
+use crate::types::history::HistoryEntry;
 use leptos::*;
 use wasm_bindgen_futures::spawn_local;
-use crate::services::{jina_service::JinaService, deeplx_service::DeepLXService, config_service::ConfigService, history_service::HistoryService, content_processor::ContentProcessor};
-use crate::types::history::HistoryEntry;
-use crate::error::{use_error_handler, AppError};
 
 #[derive(Clone, Debug)]
 pub enum TranslationStatus {
@@ -23,83 +26,112 @@ pub struct UseTranslationReturn {
 
 pub fn use_translation() -> UseTranslationReturn {
     let error_handler = use_error_handler();
-    
+
     let (is_loading, set_is_loading) = create_signal(false);
     let (translation_result, set_translation_result) = create_signal(String::new());
     let (progress_message, set_progress_message) = create_signal(String::new());
     let (status, set_status) = create_signal(TranslationStatus::Idle);
     let (translate_trigger, set_translate_trigger) = create_signal(None::<String>);
-    
+
     // Effect to handle translation when trigger changes
     create_effect({
         let set_is_loading = set_is_loading.clone();
         let set_translation_result = set_translation_result.clone();
         let set_progress_message = set_progress_message.clone();
         let set_status = set_status.clone();
-        
+
         move |_| {
             if let Some(url) = translate_trigger.get() {
                 if url.is_empty() {
                     error_handler.handle_error(AppError::validation("URL", "请输入有效的URL"));
                     return;
                 }
-                
+
                 set_is_loading.set(true);
                 set_translation_result.set(String::new());
                 set_status.set(TranslationStatus::ExtractingContent);
                 set_progress_message.set("正在提取网页内容...".to_string());
-                
+
                 let set_progress_clone = set_progress_message.clone();
                 let set_loading_clone = set_is_loading.clone();
                 let set_result_clone = set_translation_result.clone();
                 let set_status_clone = set_status.clone();
-                
+
                 spawn_local(async move {
                     web_sys::console::log_1(&"=== 开始翻译流程 ===".into());
                     web_sys::console::log_1(&format!("URL: {}", url).into());
-                    
+
                     let config_service = ConfigService::new();
                     web_sys::console::log_1(&"配置服务已创建".into());
-                    
+
                     match config_service.get_config() {
                         Ok(config) => {
                             web_sys::console::log_1(&"配置加载成功，创建服务...".into());
                             let jina_service = JinaService::new(&config);
                             let deeplx_service = DeepLXService::new(&config);
-                            
+
                             // 步骤1: 提取内容
                             web_sys::console::log_1(&"=== 步骤1: 开始提取网页内容 ===".into());
                             set_progress_clone.set("正在提取网页内容...".to_string());
-                            
+
                             match jina_service.extract_content(&url, &config).await {
                                 Ok(content) => {
-                                    web_sys::console::log_1(&format!("内容提取成功，长度: {} 字符", content.len()).into());
-                                    
+                                    web_sys::console::log_1(
+                                        &format!("内容提取成功，长度: {} 字符", content.len())
+                                            .into(),
+                                    );
+
                                     // 步骤2: 处理代码块保护
-                                    web_sys::console::log_1(&"=== 步骤2: 处理代码块保护 ===".into());
+                                    web_sys::console::log_1(
+                                        &"=== 步骤2: 处理代码块保护 ===".into(),
+                                    );
                                     let mut content_processor = ContentProcessor::new();
-                                    let protected_content = content_processor.protect_code_blocks(&content);
+                                    let protected_content =
+                                        content_processor.protect_code_blocks(&content);
                                     let protection_stats = content_processor.get_protection_stats();
-                                    
-                                    web_sys::console::log_1(&format!("代码块保护完成: {}", protection_stats.get_summary()).into());
-                                    
+
+                                    web_sys::console::log_1(
+                                        &format!(
+                                            "代码块保护完成: {}",
+                                            protection_stats.get_summary()
+                                        )
+                                        .into(),
+                                    );
+
                                     // 步骤3: 翻译内容
                                     web_sys::console::log_1(&"=== 步骤3: 开始翻译内容 ===".into());
                                     set_status_clone.set(TranslationStatus::Translating);
                                     set_progress_clone.set("正在翻译内容...".to_string());
-                                    
-                                    match deeplx_service.translate(&protected_content, &config.default_source_lang, &config.default_target_lang, &config).await {
+
+                                    match deeplx_service
+                                        .translate(
+                                            &protected_content,
+                                            &config.default_source_lang,
+                                            &config.default_target_lang,
+                                            &config,
+                                        )
+                                        .await
+                                    {
                                         Ok(translated_protected_content) => {
-                                            web_sys::console::log_1(&format!("翻译成功，长度: {} 字符", translated_protected_content.len()).into());
-                                            
+                                            web_sys::console::log_1(
+                                                &format!(
+                                                    "翻译成功，长度: {} 字符",
+                                                    translated_protected_content.len()
+                                                )
+                                                .into(),
+                                            );
+
                                             // 步骤4: 恢复代码块
-                                            web_sys::console::log_1(&"=== 步骤4: 恢复代码块 ===".into());
-                                            let final_translated_content = content_processor.restore_code_blocks(&translated_protected_content);
-                                            
+                                            web_sys::console::log_1(
+                                                &"=== 步骤4: 恢复代码块 ===".into(),
+                                            );
+                                            let final_translated_content = content_processor
+                                                .restore_code_blocks(&translated_protected_content);
+
                                             set_result_clone.set(final_translated_content.clone());
                                             set_status_clone.set(TranslationStatus::Completed);
                                             set_progress_clone.set("翻译完成".to_string());
-                                            
+
                                             // 保存到历史记录
                                             let history_service = HistoryService::new();
                                             let title = extract_title_from_content(&content);
@@ -111,27 +143,39 @@ pub fn use_translation() -> UseTranslationReturn {
                                                 content,
                                                 final_translated_content,
                                             );
-                                            
-                                            if let Err(e) = history_service.add_entry(history_entry) {
-                                                web_sys::console::log_1(&format!("保存历史记录失败: {}", e).into());
+
+                                            if let Err(e) = history_service.add_entry(history_entry)
+                                            {
+                                                web_sys::console::log_1(
+                                                    &format!("保存历史记录失败: {}", e).into(),
+                                                );
                                             } else {
                                                 web_sys::console::log_1(&"历史记录保存成功".into());
                                             }
-                                            
+
                                             web_sys::console::log_1(&"=== 翻译流程完成 ===".into());
                                         }
                                         Err(e) => {
-                                            web_sys::console::log_1(&format!("翻译失败: {}", e).into());
-                                            let error_msg = format!("翻译失败: {}。请检查DeepLX API配置。", e);
-                                            set_status_clone.set(TranslationStatus::Failed(error_msg.clone()));
-                                            error_handler.handle_error(AppError::translation(error_msg));
+                                            web_sys::console::log_1(
+                                                &format!("翻译失败: {}", e).into(),
+                                            );
+                                            let error_msg =
+                                                format!("翻译失败: {}。请检查DeepLX API配置。", e);
+                                            set_status_clone
+                                                .set(TranslationStatus::Failed(error_msg.clone()));
+                                            error_handler
+                                                .handle_error(AppError::translation(error_msg));
                                         }
                                     }
                                 }
                                 Err(e) => {
                                     web_sys::console::log_1(&format!("内容提取失败: {}", e).into());
-                                    let error_msg = format!("内容提取失败: {}。请检查URL是否有效，或Jina API是否可用。", e);
-                                    set_status_clone.set(TranslationStatus::Failed(error_msg.clone()));
+                                    let error_msg = format!(
+                                        "内容提取失败: {}。请检查URL是否有效，或Jina API是否可用。",
+                                        e
+                                    );
+                                    set_status_clone
+                                        .set(TranslationStatus::Failed(error_msg.clone()));
                                     error_handler.handle_error(AppError::extraction(error_msg));
                                 }
                             }
@@ -143,14 +187,14 @@ pub fn use_translation() -> UseTranslationReturn {
                             error_handler.handle_error(AppError::config(error_msg));
                         }
                     }
-                    
+
                     set_loading_clone.set(false);
                     set_progress_clone.set(String::new());
                 });
             }
         }
     });
-    
+
     UseTranslationReturn {
         is_loading,
         translation_result,
@@ -163,7 +207,7 @@ pub fn use_translation() -> UseTranslationReturn {
 fn extract_title_from_content(content: &str) -> String {
     // 尝试从内容中提取标题
     let lines: Vec<&str> = content.lines().collect();
-    
+
     for line in lines.iter().take(5) {
         let trimmed = line.trim();
         if !trimmed.is_empty() && trimmed.len() > 10 && trimmed.len() < 200 {
@@ -174,7 +218,7 @@ fn extract_title_from_content(content: &str) -> String {
             }
         }
     }
-    
+
     // 如果找不到合适的标题，使用内容的前50个字符
     let content_preview = content
         .chars()
@@ -182,7 +226,7 @@ fn extract_title_from_content(content: &str) -> String {
         .collect::<String>()
         .trim()
         .to_string();
-    
+
     if content_preview.is_empty() {
         "无标题".to_string()
     } else {

@@ -1,8 +1,8 @@
+use crate::error::{ErrorDisplay, ErrorProvider};
+use crate::pages::{BatchPage, HistoryPage, HomePage, SettingsPage};
+use crate::theme::{use_theme, use_theme_context, ThemeProvider, ThemeVariant};
 use leptos::*;
 use leptos_router::*;
-use crate::theme::{ThemeProvider, use_theme, use_theme_context, ThemeVariant};
-use crate::error::{ErrorProvider, ErrorDisplay};
-use crate::pages::{HomePage, SettingsPage, HistoryPage, BatchPage};
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -18,7 +18,7 @@ pub fn App() -> impl IntoView {
 #[component]
 fn AppContent() -> impl IntoView {
     let theme_context = use_theme_context();
-    
+
     view! {
         <div class="min-h-screen" style=move || theme_context.get().theme.base_bg_style()>
             <Router>
@@ -41,7 +41,7 @@ fn AppContent() -> impl IntoView {
 fn AppHeader() -> impl IntoView {
     let (theme_variant, set_theme_variant) = use_theme();
     let theme_context = use_theme_context();
-    
+
     let cycle_theme = move |_| {
         let current = theme_variant.get();
         let next = match current {
@@ -52,7 +52,7 @@ fn AppHeader() -> impl IntoView {
         };
         set_theme_variant.set(next);
     };
-    
+
     view! {
         <header class="shadow-sm" style=move || theme_context.get().theme.nav_style()>
             <div class="container mx-auto px-4">
@@ -62,31 +62,31 @@ fn AppHeader() -> impl IntoView {
                             "URL翻译工具"
                         </a>
                     </div>
-                    
+
                     <nav class="flex items-center space-x-6">
-                        <a 
-                            href="/" 
+                        <a
+                            href="/"
                             class="transition-colors px-3 py-2 rounded-md hover:opacity-80"
                             style=move || theme_context.get().theme.subtext_style()
                         >
                             "单页翻译"
                         </a>
-                        <a 
-                            href="/batch" 
+                        <a
+                            href="/batch"
                             class="transition-colors px-3 py-2 rounded-md hover:opacity-80"
                             style=move || theme_context.get().theme.subtext_style()
                         >
                             "批量翻译"
                         </a>
-                        <a 
-                            href="/history" 
+                        <a
+                            href="/history"
                             class="transition-colors px-3 py-2 rounded-md hover:opacity-80"
                             style=move || theme_context.get().theme.subtext_style()
                         >
                             "历史"
                         </a>
-                        <a 
-                            href="/settings" 
+                        <a
+                            href="/settings"
                             class="transition-colors px-3 py-2 rounded-md hover:opacity-80"
                             style=move || theme_context.get().theme.subtext_style()
                         >

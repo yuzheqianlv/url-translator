@@ -1,5 +1,5 @@
-use leptos::*;
 use crate::theme::use_theme_context;
+use leptos::*;
 
 #[component]
 pub fn UrlInput(
@@ -9,7 +9,7 @@ pub fn UrlInput(
     is_loading: ReadSignal<bool>,
 ) -> impl IntoView {
     let theme_context = use_theme_context();
-    
+
     let handle_keypress = move |ev: web_sys::KeyboardEvent| {
         if ev.key() == "Enter" && !is_loading.get() {
             // 创建一个模拟的鼠标事件
@@ -18,7 +18,7 @@ pub fn UrlInput(
             }
         }
     };
-    
+
     view! {
         <div>
             <label class="block text-sm font-medium mb-2" style=move || theme_context.get().theme.text_style()>

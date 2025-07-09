@@ -1,6 +1,6 @@
+use js_sys::Promise;
 use std::sync::Arc;
 use wasm_bindgen_futures::JsFuture;
-use js_sys::Promise;
 
 pub struct RateLimiter {
     max_requests: u32,
@@ -19,7 +19,7 @@ impl RateLimiter {
 
     pub async fn acquire(&self) -> Result<(), Box<dyn std::error::Error>> {
         let now = js_sys::Date::now(); // 获取当前时间戳（毫秒）
-        
+
         // 清理过期的请求记录
         {
             let mut requests = self.last_requests.lock().unwrap();
@@ -44,7 +44,9 @@ impl RateLimiter {
                 if wait_time_ms > 0.0 {
                     // 最少等待100ms，避免过长等待
                     let actual_wait = std::cmp::min(wait_time_ms as u32, 500);
-                    web_sys::console::log_1(&format!("速率限制触发，等待 {}ms", actual_wait).into());
+                    web_sys::console::log_1(
+                        &format!("速率限制触发，等待 {}ms", actual_wait).into(),
+                    );
                     self.sleep_ms(actual_wait).await;
                 }
             }
@@ -66,7 +68,7 @@ impl RateLimiter {
                 .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, duration_ms as i32)
                 .unwrap();
         });
-        
+
         let _ = JsFuture::from(promise).await;
     }
 }
@@ -81,9 +83,9 @@ pub struct RetryConfig {
 impl Default for RetryConfig {
     fn default() -> Self {
         Self {
-            max_attempts: 2, // 减少重试次数
-            base_delay_ms: 200, // 减少基础延迟
-            max_delay_ms: 2000, // 减少最大延迟
+            max_attempts: 2,         // 减少重试次数
+            base_delay_ms: 200,      // 减少基础延迟
+            max_delay_ms: 2000,      // 减少最大延迟
             backoff_multiplier: 1.5, // 减少退避倍数
         }
     }
@@ -99,7 +101,7 @@ where
     E: std::fmt::Display,
 {
     let mut delay_ms = config.base_delay_ms;
-    
+
     for attempt in 1..=config.max_attempts {
         // 应用速率限制
         if let Err(e) = rate_limiter.acquire().await {
@@ -107,9 +109,9 @@ where
         }
 
         web_sys::console::log_1(&format!("尝试请求 (第 {} 次)", attempt).into());
-        
+
         let result = operation().await;
-        
+
         match result {
             Ok(value) => {
                 if attempt > 1 {
@@ -122,19 +124,28 @@ where
                     web_sys::console::log_1(&format!("所有重试都失败了: {}", e).into());
                     return Err(e);
                 }
-                
-                web_sys::console::log_1(&format!("第 {} 次尝试失败: {}，等待 {}ms 后重试", attempt, e, delay_ms).into());
-                
+
+                web_sys::console::log_1(
+                    &format!(
+                        "第 {} 次尝试失败: {}，等待 {}ms 后重试",
+                        attempt, e, delay_ms
+                    )
+                    .into(),
+                );
+
                 // 指数退避延迟
                 let promise = Promise::new(&mut |resolve, _| {
                     web_sys::window()
                         .unwrap()
-                        .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, delay_ms as i32)
+                        .set_timeout_with_callback_and_timeout_and_arguments_0(
+                            &resolve,
+                            delay_ms as i32,
+                        )
                         .unwrap();
                 });
-                
+
                 let _ = JsFuture::from(promise).await;
-                
+
                 delay_ms = std::cmp::min(
                     (delay_ms as f64 * config.backoff_multiplier) as u32,
                     config.max_delay_ms,
@@ -142,6 +153,6 @@ where
             }
         }
     }
-    
+
     unreachable!()
 }

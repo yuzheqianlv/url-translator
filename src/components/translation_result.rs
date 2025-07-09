@@ -1,5 +1,5 @@
-use leptos::*;
 use crate::theme::use_theme_context;
+use leptos::*;
 
 #[component]
 pub fn TranslationResult(
@@ -7,7 +7,7 @@ pub fn TranslationResult(
     on_download: impl Fn(web_sys::MouseEvent) + 'static + Copy,
 ) -> impl IntoView {
     let theme_context = use_theme_context();
-    
+
     view! {
         <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
             <div class="flex justify-between items-center mb-4">
@@ -27,7 +27,7 @@ pub fn TranslationResult(
                     </button>
                 </Show>
             </div>
-            
+
             <div class="min-h-[300px] max-h-[600px] overflow-y-auto">
                 <Show
                     when=move || !translation_result.get().is_empty()

@@ -22,6 +22,8 @@ futures = "0.3"
 gloo-timers = { version = "0.2", features = ["futures"] }
 flate2 = "1.0"
 tar = "0.4"
+chrono = { version = "0.4", features = ["serde", "wasm-bindgen"] }
+url = "2.5"
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]

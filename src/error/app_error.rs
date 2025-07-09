@@ -5,31 +5,31 @@ use thiserror::Error;
 pub enum AppError {
     #[error("网络请求失败: {message}")]
     NetworkError { message: String },
-    
+
     #[error("API调用失败: {service} - {message}")]
     ApiError { service: String, message: String },
-    
+
     #[error("翻译服务错误: {message}")]
     TranslationError { message: String },
-    
+
     #[error("内容提取失败: {message}")]
     ExtractionError { message: String },
-    
+
     #[error("配置错误: {message}")]
     ConfigError { message: String },
-    
+
     #[error("验证错误: {field} - {message}")]
     ValidationError { field: String, message: String },
-    
+
     #[error("速率限制错误: {message}")]
     RateLimitError { message: String },
-    
+
     #[error("文件操作错误: {message}")]
     FileError { message: String },
-    
+
     #[error("解析错误: {message}")]
     ParseError { message: String },
-    
+
     #[error("未知错误: {message}")]
     Unknown { message: String },
 }
@@ -59,63 +59,63 @@ impl AppError {
             message: message.into(),
         }
     }
-    
+
     pub fn api(service: impl Into<String>, message: impl Into<String>) -> Self {
         Self::ApiError {
             service: service.into(),
             message: message.into(),
         }
     }
-    
+
     pub fn translation(message: impl Into<String>) -> Self {
         Self::TranslationError {
             message: message.into(),
         }
     }
-    
+
     pub fn extraction(message: impl Into<String>) -> Self {
         Self::ExtractionError {
             message: message.into(),
         }
     }
-    
+
     pub fn config(message: impl Into<String>) -> Self {
         Self::ConfigError {
             message: message.into(),
         }
     }
-    
+
     pub fn validation(field: impl Into<String>, message: impl Into<String>) -> Self {
         Self::ValidationError {
             field: field.into(),
             message: message.into(),
         }
     }
-    
+
     pub fn rate_limit(message: impl Into<String>) -> Self {
         Self::RateLimitError {
             message: message.into(),
         }
     }
-    
+
     pub fn file(message: impl Into<String>) -> Self {
         Self::FileError {
             message: message.into(),
         }
     }
-    
+
     pub fn parse(message: impl Into<String>) -> Self {
         Self::ParseError {
             message: message.into(),
         }
     }
-    
+
     pub fn unknown(message: impl Into<String>) -> Self {
         Self::Unknown {
             message: message.into(),
         }
     }
-    
+
     /// 获取错误的严重程度
     pub fn severity(&self) -> ErrorSeverity {
         match self {
@@ -131,7 +131,7 @@ impl AppError {
             AppError::Unknown { .. } => ErrorSeverity::High,
         }
     }
-    
+
     /// 获取用户友好的错误消息
     pub fn user_message(&self) -> String {
         match self {
@@ -147,14 +147,13 @@ impl AppError {
             AppError::Unknown { .. } => "发生未知错误，请稍后重试".to_string(),
         }
     }
-    
+
     /// 获取建议的操作
     pub fn suggested_actions(&self) -> Vec<String> {
         match self {
-            AppError::NetworkError { .. } => vec![
-                "检查网络连接".to_string(),
-                "刷新页面重试".to_string(),
-            ],
+            AppError::NetworkError { .. } => {
+                vec!["检查网络连接".to_string(), "刷新页面重试".to_string()]
+            }
             AppError::ApiError { service, .. } => vec![
                 format!("检查 {} 服务配置", service),
                 "稍后重试".to_string(),
@@ -174,29 +173,24 @@ impl AppError {
                 "前往设置页面检查配置".to_string(),
                 "重置为默认配置".to_string(),
             ],
-            AppError::ValidationError { .. } => vec![
-                "检查输入格式".to_string(),
-                "参考示例输入".to_string(),
-            ],
-            AppError::RateLimitError { .. } => vec![
-                "等待一段时间后重试".to_string(),
-                "降低请求频率".to_string(),
-            ],
-            AppError::FileError { .. } => vec![
-                "检查文件权限".to_string(),
-                "尝试重新操作".to_string(),
-            ],
-            AppError::ParseError { .. } => vec![
-                "检查数据格式".to_string(),
-                "刷新页面重试".to_string(),
-            ],
-            AppError::Unknown { .. } => vec![
-                "刷新页面重试".to_string(),
-                "联系技术支持".to_string(),
-            ],
+            AppError::ValidationError { .. } => {
+                vec!["检查输入格式".to_string(), "参考示例输入".to_string()]
+            }
+            AppError::RateLimitError { .. } => {
+                vec!["等待一段时间后重试".to_string(), "降低请求频率".to_string()]
+            }
+            AppError::FileError { .. } => {
+                vec!["检查文件权限".to_string(), "尝试重新操作".to_string()]
+            }
+            AppError::ParseError { .. } => {
+                vec!["检查数据格式".to_string(), "刷新页面重试".to_string()]
+            }
+            AppError::Unknown { .. } => {
+                vec!["刷新页面重试".to_string(), "联系技术支持".to_string()]
+            }
         }
     }
-    
+
     /// 判断错误是否可以重试
     pub fn is_retryable(&self) -> bool {
         match self {
@@ -219,7 +213,7 @@ impl ErrorContext {
         let severity = error.severity();
         let user_message = error.user_message();
         let suggested_actions = error.suggested_actions();
-        
+
         Self {
             error,
             severity,
@@ -230,17 +224,17 @@ impl ErrorContext {
             suggested_actions,
         }
     }
-    
+
     pub fn with_technical_details(mut self, details: impl Into<String>) -> Self {
         self.technical_details = Some(details.into());
         self
     }
-    
+
     pub fn increment_retry(mut self) -> Self {
         self.retry_count += 1;
         self
     }
-    
+
     pub fn can_retry(&self, max_retries: u32) -> bool {
         self.error.is_retryable() && self.retry_count < max_retries
     }

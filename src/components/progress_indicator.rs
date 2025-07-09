@@ -1,5 +1,5 @@
-use leptos::*;
 use crate::hooks::use_translation::TranslationStatus;
+use leptos::*;
 
 #[component]
 pub fn ProgressIndicator(

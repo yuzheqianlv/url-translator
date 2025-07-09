@@ -12,17 +12,17 @@ pub fn Header() -> impl IntoView {
                             "URL翻译工具"
                         </A>
                     </div>
-                    
+
                     <nav class="flex items-center space-x-6">
-                        <A 
-                            href="/" 
+                        <A
+                            href="/"
                             class="text-gray-600 hover:text-blue-600 transition-colors"
                             active_class="text-blue-600 font-medium"
                         >
                             "首页"
                         </A>
-                        <A 
-                            href="/settings" 
+                        <A
+                            href="/settings"
                             class="text-gray-600 hover:text-blue-600 transition-colors"
                             active_class="text-blue-600 font-medium"
                         >

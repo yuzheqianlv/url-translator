@@ -61,7 +61,7 @@ impl HistoryEntry {
         let word_count = original_content.split_whitespace().count();
         let now = js_sys::Date::new_0();
         let created_at = now.to_iso_string().as_string().unwrap();
-        
+
         Self {
             id: Uuid::new_v4().to_string(),
             url,
@@ -76,7 +76,7 @@ impl HistoryEntry {
             batch_data: None,
         }
     }
-    
+
     pub fn new_batch_translation(
         index_url: String,
         title: String,
@@ -84,12 +84,14 @@ impl HistoryEntry {
         target_lang: String,
         batch_data: BatchTranslationData,
     ) -> Self {
-        let word_count = batch_data.document_list.iter()
+        let word_count = batch_data
+            .document_list
+            .iter()
             .map(|doc| doc.original_content.split_whitespace().count())
             .sum();
         let now = js_sys::Date::new_0();
         let created_at = now.to_iso_string().as_string().unwrap();
-        
+
         Self {
             id: Uuid::new_v4().to_string(),
             url: index_url,
@@ -97,14 +99,17 @@ impl HistoryEntry {
             source_lang,
             target_lang,
             original_content: format!("批量翻译 {} 个文档", batch_data.total_documents),
-            translated_content: format!("成功: {}, 失败: {}", batch_data.successful_documents, batch_data.failed_documents),
+            translated_content: format!(
+                "成功: {}, 失败: {}",
+                batch_data.successful_documents, batch_data.failed_documents
+            ),
             created_at,
             word_count,
             entry_type: HistoryEntryType::BatchTranslation,
             batch_data: Some(batch_data),
         }
     }
-    
+
     // 保持向后兼容性
     pub fn new(
         url: String,
@@ -114,9 +119,16 @@ impl HistoryEntry {
         original_content: String,
         translated_content: String,
     ) -> Self {
-        Self::new_single_page(url, title, source_lang, target_lang, original_content, translated_content)
+        Self::new_single_page(
+            url,
+            title,
+            source_lang,
+            target_lang,
+            original_content,
+            translated_content,
+        )
     }
-    
+
     pub fn get_summary(&self) -> String {
         format!(
             "{} ({} -> {})",
@@ -129,7 +141,7 @@ impl HistoryEntry {
             self.target_lang
         )
     }
-    
+
     pub fn get_formatted_date(&self) -> String {
         // 简化的时间格式化
         let date = js_sys::Date::new(&self.created_at.clone().into());
@@ -138,8 +150,11 @@ impl HistoryEntry {
         let day = date.get_date();
         let hours = date.get_hours();
         let minutes = date.get_minutes();
-        
-        format!("{}-{:02}-{:02} {:02}:{:02}", year, month, day, hours, minutes)
+
+        format!(
+            "{}-{:02}-{:02} {:02}:{:02}",
+            year, month, day, hours, minutes
+        )
     }
 }
 

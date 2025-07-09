@@ -1,8 +1,8 @@
-use leptos::*;
 use crate::hooks::use_history::use_history;
-use crate::types::history::{HistoryFilter, HistorySortBy, HistoryEntryType};
 use crate::services::history_service::{ExportFormat, HistoryService};
 use crate::theme::use_theme_context;
+use crate::types::history::{HistoryEntryType, HistoryFilter, HistorySortBy};
+use leptos::*;
 use wasm_bindgen::JsCast;
 
 #[component]
@@ -11,7 +11,7 @@ pub fn HistoryPage() -> impl IntoView {
     let theme_context = use_theme_context();
     let (search_term, set_search_term) = create_signal(String::new());
     let (selected_entry_id, set_selected_entry_id) = create_signal(None::<String>);
-    
+
     // 搜索处理
     let handle_search = move |_| {
         let term = search_term.get();
@@ -21,17 +21,17 @@ pub fn HistoryPage() -> impl IntoView {
         };
         history.set_filter.set(filter);
     };
-    
+
     // 排序处理
     let handle_sort_change = move |sort: HistorySortBy| {
         history.set_sort.set(sort);
     };
-    
+
     // 删除条目
     let handle_delete = move |id: String| {
         history.delete_entry.set(Some(id));
     };
-    
+
     // 清空历史
     let handle_clear = move |_| {
         if web_sys::window()
@@ -41,12 +41,12 @@ pub fn HistoryPage() -> impl IntoView {
             history.clear_history.set(true);
         }
     };
-    
+
     // 导出历史
     let handle_export = move |format: ExportFormat| {
         history.export_history.set(Some(format));
     };
-    
+
     // 下载单页翻译
     let download_single_page = move |entry_id: String| {
         let history_service = HistoryService::new();
@@ -62,7 +62,7 @@ pub fn HistoryPage() -> impl IntoView {
             }
         }
     };
-    
+
     // 下载批量翻译
     let download_batch_translation = move |entry_id: String, selected_docs: Option<Vec<usize>>| {
         let history_service = HistoryService::new();
@@ -78,14 +78,14 @@ pub fn HistoryPage() -> impl IntoView {
             }
         }
     };
-    
+
     view! {
         <div class="max-w-6xl mx-auto space-y-6">
             <div class="flex justify-between items-center">
                 <h1 class="text-3xl font-bold" style=move || theme_context.get().theme.text_style()>
                     "翻译历史记录"
                 </h1>
-                
+
                 <div class="flex space-x-2">
                     <button
                         class="px-4 py-2 rounded-md transition-colors hover:opacity-90"
@@ -110,7 +110,7 @@ pub fn HistoryPage() -> impl IntoView {
                     </button>
                 </div>
             </div>
-            
+
             // 统计信息卡片
             <Show when=move || history.statistics.get().is_some()>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -145,7 +145,7 @@ pub fn HistoryPage() -> impl IntoView {
                     }}
                 </div>
             </Show>
-            
+
             // 搜索和过滤
             <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
                 <div class="flex flex-col md:flex-row gap-4">
@@ -174,7 +174,7 @@ pub fn HistoryPage() -> impl IntoView {
                         >
                             "搜索"
                         </button>
-                        <select 
+                        <select
                             class="px-4 py-2 rounded-md"
                             style=move || theme_context.get().theme.input_style()
                             on:change=move |ev| {
@@ -201,7 +201,7 @@ pub fn HistoryPage() -> impl IntoView {
                     </div>
                 </div>
             </div>
-            
+
             // 历史记录列表
             <div class="rounded-lg shadow-lg" style=move || theme_context.get().theme.card_style()>
                 <Show
@@ -242,7 +242,7 @@ pub fn HistoryPage() -> impl IntoView {
                                     let entry_id_for_download_single = entry_id.clone();
                                     let entry_id_for_download_batch = entry_id.clone();
                                     let entry_id_for_download_batch_inline = entry_id.clone();
-                                    
+
                                     // 克隆所有在view!中需要使用的字段
                                     let entry_title = entry.title.clone();
                                     let entry_url = entry.url.clone();
@@ -254,11 +254,11 @@ pub fn HistoryPage() -> impl IntoView {
                                     let entry_translated_content = entry.translated_content.clone();
                                     let entry_type = entry.entry_type.clone();
                                     let entry_batch_data = entry.batch_data.clone();
-                                    
+
                                     let is_expanded = create_memo(move |_| {
                                         selected_entry_id.get() == Some(entry_id.clone())
                                     });
-                                    
+
                                     let toggle_expand_1 = {
                                         let entry_id_for_expand = entry_id_for_expand.clone();
                                         move |_| {
@@ -269,7 +269,7 @@ pub fn HistoryPage() -> impl IntoView {
                                             }
                                         }
                                     };
-                                    
+
                                     let toggle_expand_2 = {
                                         let entry_id_for_expand = entry_id_for_expand.clone();
                                         move |_| {
@@ -280,7 +280,7 @@ pub fn HistoryPage() -> impl IntoView {
                                             }
                                         }
                                     };
-                                    
+
                                     let delete_entry = move |_| {
                                         if web_sys::window()
                                             .and_then(|w| w.confirm_with_message("确定要删除这条记录吗？").ok())
@@ -289,7 +289,7 @@ pub fn HistoryPage() -> impl IntoView {
                                             handle_delete(entry_id_for_delete.clone());
                                         }
                                     };
-                                    
+
                                     view! {
                                         <div class="p-4">
                                             <div class="flex items-center justify-between">
@@ -304,7 +304,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                         {entry_url.clone()}
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div class="flex items-center space-x-2">
                                                     // 下载按钮
                                                     {
@@ -339,21 +339,21 @@ pub fn HistoryPage() -> impl IntoView {
                                                             }
                                                         }
                                                     }
-                                                    
+
                                                     <button
                                                         class="p-2 rounded-md transition-colors hover:opacity-80 themed-button-secondary"
                                                         on:click=toggle_expand_2
                                                         title="展开/收起"
                                                     >
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path 
-                                                                stroke-linecap="round" 
-                                                                stroke-linejoin="round" 
-                                                                stroke-width="2" 
-                                                                d=move || if is_expanded.get() { 
-                                                                    "M5 15l7-7 7 7" 
-                                                                } else { 
-                                                                    "M19 9l-7 7-7-7" 
+                                                            <path
+                                                                stroke-linecap="round"
+                                                                stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d=move || if is_expanded.get() {
+                                                                    "M5 15l7-7 7 7"
+                                                                } else {
+                                                                    "M19 9l-7 7-7-7"
                                                                 }
                                                             />
                                                         </svg>
@@ -369,7 +369,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                     </button>
                                                 </div>
                                             </div>
-                                            
+
                                             <Show when=move || is_expanded.get()>
                                                 <div class="mt-4 space-y-4 border-t pt-4 themed-border-t">
                                                     {
@@ -414,7 +414,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                                                         <div class="text-sm themed-subtext">"总字数"</div>
                                                                                     </div>
                                                                                 </div>
-                                                                                
+
                                                                                 <div class="mb-3">
                                                                                     <div class="flex justify-between items-center mb-2">
                                                                                         <span class="text-sm font-medium themed-text">"索引URL:"</span>
@@ -432,7 +432,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                                                     </div>
                                                                                     <div class="text-sm themed-subtext truncate">{batch_data.index_url.clone()}</div>
                                                                                 </div>
-                                                                                
+
                                                                                 // 显示文档列表（只显示前10个，其余折叠）
                                                                                 <div>
                                                                                     <h5 class="text-sm font-medium themed-text mb-2">"文档列表:"</h5>
@@ -457,7 +457,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                                                                 </div>
                                                                                             }
                                                                                         }).collect::<Vec<_>>()}
-                                                                                        
+
                                                                                         {if batch_data.document_list.len() > 10 {
                                                                                             view! {
                                                                                                 <div class="text-center text-sm themed-subtext py-2">
@@ -504,25 +504,28 @@ fn trigger_download(data: &[u8], filename: &str) -> Result<(), String> {
     // 创建Blob
     let array = js_sys::Uint8Array::new_with_length(data.len() as u32);
     array.copy_from(data);
-    
+
     let blob_parts = js_sys::Array::new();
     blob_parts.push(&array);
-    
-    let blob = web_sys::Blob::new_with_u8_array_sequence(&blob_parts)
-        .map_err(|_| "无法创建Blob对象")?;
+
+    let blob =
+        web_sys::Blob::new_with_u8_array_sequence(&blob_parts).map_err(|_| "无法创建Blob对象")?;
 
     // 创建下载链接
-    let url = web_sys::Url::create_object_url_with_blob(&blob)
-        .map_err(|_| "无法创建对象URL")?;
+    let url = web_sys::Url::create_object_url_with_blob(&blob).map_err(|_| "无法创建对象URL")?;
 
-    let anchor = document.create_element("a")
+    let anchor = document
+        .create_element("a")
         .map_err(|_| "无法创建a元素")?
         .dyn_into::<web_sys::HtmlAnchorElement>()
         .map_err(|_| "无法转换为HtmlAnchorElement")?;
 
     anchor.set_href(&url);
     anchor.set_download(filename);
-    anchor.style().set_property("display", "none").map_err(|_| "无法设置样式")?;
+    anchor
+        .style()
+        .set_property("display", "none")
+        .map_err(|_| "无法设置样式")?;
 
     let body = document.body().ok_or("无法获取body元素")?;
     body.append_child(&anchor).map_err(|_| "无法添加下载链接")?;

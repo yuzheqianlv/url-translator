@@ -1,7 +1,5 @@
 use crate::services::{
-    jina_service::JinaService,
-    deeplx_service::DeepLXService,
-    content_processor::ContentProcessor,
+    content_processor::ContentProcessor, deeplx_service::DeepLXService, jina_service::JinaService,
 };
 use crate::types::api_types::AppConfig;
 
@@ -55,14 +53,17 @@ impl PreviewService {
         web_sys::console::log_1(&format!("URL: {}", url).into());
 
         // 提取完整内容
-        let full_content = self.jina_service.extract_content(url, config).await
+        let full_content = self
+            .jina_service
+            .extract_content(url, config)
+            .await
             .map_err(|e| format!("无法提取网页内容: {}", e))?;
 
         web_sys::console::log_1(&format!("完整内容长度: {} 字符", full_content.len()).into());
 
         // 提取预览部分
         let preview_text = self.extract_preview_text(&full_content, options);
-        
+
         web_sys::console::log_1(&format!("预览内容长度: {} 字符", preview_text.len()).into());
 
         if preview_text.trim().is_empty() {
@@ -72,20 +73,26 @@ impl PreviewService {
         // 保护代码块
         let mut content_processor = ContentProcessor::new();
         let protected_content = content_processor.protect_code_blocks(&preview_text);
-        
+
         let protection_stats = content_processor.get_protection_stats();
         if protection_stats.total_blocks() > 0 {
-            web_sys::console::log_1(&format!("代码块保护: {}", protection_stats.get_summary()).into());
+            web_sys::console::log_1(
+                &format!("代码块保护: {}", protection_stats.get_summary()).into(),
+            );
         }
 
         // 翻译预览内容
         web_sys::console::log_1(&"开始翻译预览内容...".into());
-        let translated_protected = self.deeplx_service.translate(
-            &protected_content,
-            &config.default_source_lang,
-            &config.default_target_lang,
-            config
-        ).await.map_err(|e| format!("翻译失败: {}", e))?;
+        let translated_protected = self
+            .deeplx_service
+            .translate(
+                &protected_content,
+                &config.default_source_lang,
+                &config.default_target_lang,
+                config,
+            )
+            .await
+            .map_err(|e| format!("翻译失败: {}", e))?;
 
         // 恢复代码块
         let translated_text = content_processor.restore_code_blocks(&translated_protected);
@@ -114,14 +121,17 @@ impl PreviewService {
 
         for line in content.lines() {
             let trimmed = line.trim();
-            
+
             // 跳过空行
             if trimmed.is_empty() {
                 continue;
             }
 
             // 提取标题
-            if !found_title && options.include_title && (trimmed.starts_with('#') || self.looks_like_title(trimmed)) {
+            if !found_title
+                && options.include_title
+                && (trimmed.starts_with('#') || self.looks_like_title(trimmed))
+            {
                 if char_count + trimmed.len() > options.max_characters {
                     break;
                 }
@@ -142,7 +152,8 @@ impl PreviewService {
                 if char_count + trimmed.len() > options.max_characters {
                     // 如果加上这段会超过字符限制，截断到句子边界
                     let remaining = options.max_characters - char_count;
-                    if remaining > 50 { // 只有剩余空间足够时才截断
+                    if remaining > 50 {
+                        // 只有剩余空间足够时才截断
                         let truncated = self.truncate_to_sentence(trimmed, remaining);
                         preview.push_str(&truncated);
                         if !truncated.ends_with("...") {
@@ -166,27 +177,27 @@ impl PreviewService {
 
     /// 判断是否看起来像标题
     fn looks_like_title(&self, text: &str) -> bool {
-        text.len() < 100 && 
-        text.len() > 5 &&
-        !text.contains('.') &&
-        !text.starts_with('-') &&
-        !text.starts_with('*') &&
-        text.chars().any(|c| c.is_uppercase())
+        text.len() < 100
+            && text.len() > 5
+            && !text.contains('.')
+            && !text.starts_with('-')
+            && !text.starts_with('*')
+            && text.chars().any(|c| c.is_uppercase())
     }
 
     /// 判断是否是元数据或导航
     fn is_metadata_or_navigation(&self, text: &str) -> bool {
         let lower = text.to_lowercase();
-        lower.contains("published") ||
-        lower.contains("updated") ||
-        lower.contains("author") ||
-        lower.contains("source:") ||
-        lower.contains("url:") ||
-        lower.contains("time:") ||
-        lower.starts_with("breadcrumb") ||
-        lower.starts_with("navigation") ||
-        lower.starts_with("menu") ||
-        (text.starts_with('[') && text.ends_with(')')) // Markdown链接
+        lower.contains("published")
+            || lower.contains("updated")
+            || lower.contains("author")
+            || lower.contains("source:")
+            || lower.contains("url:")
+            || lower.contains("time:")
+            || lower.starts_with("breadcrumb")
+            || lower.starts_with("navigation")
+            || lower.starts_with("menu")
+            || (text.starts_with('[') && text.ends_with(')')) // Markdown链接
     }
 
     /// 截断到句子边界
@@ -196,10 +207,11 @@ impl PreviewService {
         }
 
         let truncated = &text[..max_length];
-        
+
         // 尝试在句号处截断
         if let Some(pos) = truncated.rfind('.') {
-            if pos > max_length / 2 { // 确保不会截得太短
+            if pos > max_length / 2 {
+                // 确保不会截得太短
                 return format!("{}.", &truncated[..pos]);
             }
         }
@@ -227,11 +239,7 @@ impl PreviewService {
     }
 
     /// 快速验证URL和配置
-    pub async fn quick_validate(
-        &self,
-        url: &str,
-        config: &AppConfig,
-    ) -> Result<String, String> {
+    pub async fn quick_validate(&self, url: &str, config: &AppConfig) -> Result<String, String> {
         web_sys::console::log_1(&"快速验证URL和配置...".into());
 
         // 尝试提取很少的内容进行测试
@@ -242,13 +250,11 @@ impl PreviewService {
         };
 
         match self.generate_preview(url, config, &options).await {
-            Ok(preview) => {
-                Ok(format!(
-                    "验证成功！提取了 {} 字符，翻译为 {} 字符",
-                    preview.character_count,
-                    preview.translated_text.chars().count()
-                ))
-            }
+            Ok(preview) => Ok(format!(
+                "验证成功！提取了 {} 字符，翻译为 {} 字符",
+                preview.character_count,
+                preview.translated_text.chars().count()
+            )),
             Err(e) => Err(format!("验证失败: {}", e)),
         }
     }

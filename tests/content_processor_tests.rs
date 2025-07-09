@@ -27,16 +27,16 @@ console.log("Hello");
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         assert_eq!(stats.fenced_blocks, 2);
         assert_eq!(stats.total_blocks(), 2);
-        
+
         // 检查代码块被替换为占位符
         assert!(!protected.contains("fn main()"));
         assert!(!protected.contains("console.log"));
         assert!(protected.contains("这是一些文本"));
         assert!(protected.contains("__CODE_BLOCK_"));
-        
+
         // 恢复代码块
         let restored = processor.restore_code_blocks(&protected);
         assert!(restored.contains("fn main()"));
@@ -50,12 +50,12 @@ console.log("Hello");
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         assert_eq!(stats.inline_blocks, 2);
         assert!(!protected.contains("`inline code`"));
         assert!(!protected.contains("`variable`"));
         assert!(protected.contains("__CODE_BLOCK_"));
-        
+
         let restored = processor.restore_code_blocks(&protected);
         assert!(restored.contains("`inline code`"));
         assert!(restored.contains("`variable`"));
@@ -76,11 +76,11 @@ console.log("script");
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         assert!(stats.html_code_blocks > 0 || stats.pre_blocks > 0 || stats.script_blocks > 0);
         assert!(!protected.contains("<code>some code</code>"));
         assert!(!protected.contains("console.log(\"script\")"));
-        
+
         let restored = processor.restore_code_blocks(&protected);
         assert!(restored.contains("<code>some code</code>"));
         assert!(restored.contains("console.log(\"script\")"));
@@ -108,18 +108,18 @@ def hello():
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         assert!(stats.total_blocks() >= 4); // 至少应该有4个代码块
         assert!(!protected.contains("`inline code`"));
         assert!(!protected.contains("def hello():"));
         assert!(!protected.contains("document.getElementById"));
         assert!(!protected.contains("预格式化文本"));
-        
+
         // 普通文本应该保留
         assert!(protected.contains("# 标题"));
         assert!(protected.contains("这是文档内容"));
         assert!(protected.contains("还有HTML代码"));
-        
+
         let restored = processor.restore_code_blocks(&protected);
         assert!(restored.contains("`inline code`"));
         assert!(restored.contains("def hello():"));
@@ -134,10 +134,10 @@ def hello():
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         assert_eq!(stats.total_blocks(), 0);
         assert_eq!(protected, content); // 内容应该不变
-        
+
         let restored = processor.restore_code_blocks(&protected);
         assert_eq!(restored, content);
     }
@@ -159,10 +159,10 @@ fn test() {}
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         // 应该至少保护一个代码块
         assert!(stats.fenced_blocks >= 1);
-        
+
         // 原始内容应该被保护（可能作为外层块，也可能作为内层块）
         // 关键是恢复后内容完整
         let restored = processor.restore_code_blocks(&protected);
@@ -192,9 +192,9 @@ console.log("Hello");
 
         let protected = processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
-        
+
         assert_eq!(stats.fenced_blocks, 3);
-        
+
         // 检查代码块是否被正确保护
         let protected_blocks = processor.get_protection_stats();
         assert_eq!(protected_blocks.fenced_blocks, 3);
@@ -217,7 +217,7 @@ fn main() {}
         processor.protect_code_blocks(content);
         let stats = processor.get_protection_stats();
         let summary = stats.get_summary();
-        
+
         assert!(summary.contains("已保护"));
         assert!(summary.contains("个代码块"));
         assert!(stats.total_blocks() > 0);

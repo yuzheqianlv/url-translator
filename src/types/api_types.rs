@@ -1,3 +1,4 @@
+use crate::services::file_naming_service::FileNamingConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +24,7 @@ pub struct AppConfig {
     pub max_requests_per_second: u32,
     pub max_text_length: usize,
     pub max_paragraphs_per_request: usize,
+    pub file_naming: FileNamingConfig,
 }
 
 impl Default for AppConfig {
@@ -35,6 +37,7 @@ impl Default for AppConfig {
             max_requests_per_second: 10, // 提高到每秒10个请求
             max_text_length: 5000, // 提高到5000字符
             max_paragraphs_per_request: 10, // 提高到10个段落
+            file_naming: FileNamingConfig::default(),
         }
     }
 }

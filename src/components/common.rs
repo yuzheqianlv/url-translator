@@ -14,7 +14,7 @@ pub fn ProgressIndicator(
                 </div>
             </Show>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
+                <div
                     class="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
                     style:width=move || format!("{}%", progress.get().clamp(0.0, 100.0))
                 ></div>

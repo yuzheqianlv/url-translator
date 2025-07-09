@@ -1,6 +1,6 @@
-use leptos::*;
 use crate::hooks::use_preview::use_preview;
 use crate::services::preview_service::{PreviewContent, PreviewOptions};
+use leptos::*;
 
 #[component]
 pub fn PreviewPanel(
@@ -8,13 +8,15 @@ pub fn PreviewPanel(
     #[prop(into, optional)] show_preview: Signal<bool>,
 ) -> impl IntoView {
     let preview = use_preview();
-    
+
     let (preview_options, set_preview_options) = create_signal(PreviewOptions::default());
 
     let handle_generate_preview = move |_| {
         let current_url = url.get();
         if !current_url.is_empty() {
-            preview.generate_preview.set(Some((current_url, preview_options.get())));
+            preview
+                .generate_preview
+                .set(Some((current_url, preview_options.get())));
         }
     };
 
@@ -50,9 +52,9 @@ pub fn PreviewPanel(
                 </div>
 
                 // 预览选项
-                <PreviewOptionsPanel 
-                    options=preview_options 
-                    set_options=set_preview_options 
+                <PreviewOptionsPanel
+                    options=preview_options
+                    set_options=set_preview_options
                 />
 
                 // 加载状态
@@ -145,9 +147,7 @@ fn PreviewOptionsPanel(
 }
 
 #[component]
-fn PreviewContentDisplay(
-    content: ReadSignal<Option<PreviewContent>>,
-) -> impl IntoView {
+fn PreviewContentDisplay(content: ReadSignal<Option<PreviewContent>>) -> impl IntoView {
     view! {
         <Show when=move || content.get().is_some()>
             {move || {

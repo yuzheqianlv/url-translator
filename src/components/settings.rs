@@ -1,18 +1,18 @@
-use leptos::*;
 use crate::services::config_service::ConfigService;
 use crate::types::api_types::AppConfig;
+use leptos::*;
 
 #[component]
 pub fn Settings() -> impl IntoView {
     let config_service = ConfigService::new();
     let initial_config = config_service.get_config().unwrap_or_default();
-    
+
     let (deeplx_url, set_deeplx_url) = create_signal(initial_config.deeplx_api_url.clone());
     let (jina_url, set_jina_url) = create_signal(initial_config.jina_api_url.clone());
     let (source_lang, set_source_lang) = create_signal(initial_config.default_source_lang.clone());
     let (target_lang, set_target_lang) = create_signal(initial_config.default_target_lang.clone());
     let (save_message, set_save_message) = create_signal(String::new());
-    
+
     let save_settings = move |_| {
         let config = AppConfig {
             deeplx_api_url: deeplx_url.get(),
@@ -22,15 +22,15 @@ pub fn Settings() -> impl IntoView {
             max_requests_per_second: 10,
             max_text_length: 5000,
             max_paragraphs_per_request: 10,
+            file_naming: initial_config.file_naming.clone(),
         };
-        
+
         match config_service.save_config(&config) {
             Ok(_) => set_save_message.set("设置保存成功！".to_string()),
             Err(e) => set_save_message.set(format!("保存失败: {}", e)),
         }
-        
     };
-    
+
     view! {
         <div class="bg-white rounded-lg shadow-lg p-6">
             <div class="space-y-6">
@@ -49,7 +49,7 @@ pub fn Settings() -> impl IntoView {
                             }
                         />
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             "Jina API URL"
@@ -64,12 +64,12 @@ pub fn Settings() -> impl IntoView {
                             }
                         />
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             "默认源语言"
                         </label>
-                        <select 
+                        <select
                             class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             prop:value=source_lang
                             on:change=move |ev| {
@@ -85,12 +85,12 @@ pub fn Settings() -> impl IntoView {
                             <option value="ES">"西班牙语"</option>
                         </select>
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             "默认目标语言"
                         </label>
-                        <select 
+                        <select
                             class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             prop:value=target_lang
                             on:change=move |ev| {
@@ -106,7 +106,7 @@ pub fn Settings() -> impl IntoView {
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="flex items-center justify-between">
                     <button
                         class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
@@ -114,7 +114,7 @@ pub fn Settings() -> impl IntoView {
                     >
                         "保存设置"
                     </button>
-                    
+
                     {move || {
                         let message = save_message.get();
                         if !message.is_empty() {
@@ -128,7 +128,7 @@ pub fn Settings() -> impl IntoView {
                         }
                     }}
                 </div>
-                
+
                 <div class="border-t pt-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-3">
                         "使用说明"

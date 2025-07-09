@@ -65,7 +65,7 @@ pub struct CatppuccinTheme {
 
 pub const CATPPUCCIN_LATTE: CatppuccinTheme = CatppuccinTheme {
     rosewater: "#dc8a78",
-    flamingo: "#dd7878", 
+    flamingo: "#dd7878",
     pink: "#ea76cb",
     mauve: "#8839ef",
     red: "#d20f39",
@@ -193,65 +193,164 @@ impl CatppuccinTheme {
         let document = web_sys::window().unwrap().document().unwrap();
         let html = document.document_element().unwrap();
         let html_element = html.dyn_ref::<web_sys::HtmlElement>().unwrap();
-        
-        html_element.style().set_property("--color-rosewater", self.rosewater).unwrap();
-        html_element.style().set_property("--color-flamingo", self.flamingo).unwrap();
-        html_element.style().set_property("--color-pink", self.pink).unwrap();
-        html_element.style().set_property("--color-mauve", self.mauve).unwrap();
-        html_element.style().set_property("--color-red", self.red).unwrap();
-        html_element.style().set_property("--color-maroon", self.maroon).unwrap();
-        html_element.style().set_property("--color-peach", self.peach).unwrap();
-        html_element.style().set_property("--color-yellow", self.yellow).unwrap();
-        html_element.style().set_property("--color-green", self.green).unwrap();
-        html_element.style().set_property("--color-teal", self.teal).unwrap();
-        html_element.style().set_property("--color-sky", self.sky).unwrap();
-        html_element.style().set_property("--color-sapphire", self.sapphire).unwrap();
-        html_element.style().set_property("--color-blue", self.blue).unwrap();
-        html_element.style().set_property("--color-lavender", self.lavender).unwrap();
-        html_element.style().set_property("--color-text", self.text).unwrap();
-        html_element.style().set_property("--color-subtext1", self.subtext1).unwrap();
-        html_element.style().set_property("--color-subtext0", self.subtext0).unwrap();
-        html_element.style().set_property("--color-overlay2", self.overlay2).unwrap();
-        html_element.style().set_property("--color-overlay1", self.overlay1).unwrap();
-        html_element.style().set_property("--color-overlay0", self.overlay0).unwrap();
-        html_element.style().set_property("--color-surface2", self.surface2).unwrap();
-        html_element.style().set_property("--color-surface1", self.surface1).unwrap();
-        html_element.style().set_property("--color-surface0", self.surface0).unwrap();
-        html_element.style().set_property("--color-base", self.base).unwrap();
-        html_element.style().set_property("--color-mantle", self.mantle).unwrap();
-        html_element.style().set_property("--color-crust", self.crust).unwrap();
+
+        html_element
+            .style()
+            .set_property("--color-rosewater", self.rosewater)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-flamingo", self.flamingo)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-pink", self.pink)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-mauve", self.mauve)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-red", self.red)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-maroon", self.maroon)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-peach", self.peach)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-yellow", self.yellow)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-green", self.green)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-teal", self.teal)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-sky", self.sky)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-sapphire", self.sapphire)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-blue", self.blue)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-lavender", self.lavender)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-text", self.text)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-subtext1", self.subtext1)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-subtext0", self.subtext0)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-overlay2", self.overlay2)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-overlay1", self.overlay1)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-overlay0", self.overlay0)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-surface2", self.surface2)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-surface1", self.surface1)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-surface0", self.surface0)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-base", self.base)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-mantle", self.mantle)
+            .unwrap();
+        html_element
+            .style()
+            .set_property("--color-crust", self.crust)
+            .unwrap();
     }
 
     // 便利方法获取按钮样式
     pub fn button_primary_style(&self) -> String {
-        format!("background-color: {}; color: {}; border: 1px solid {};", self.blue, self.base, self.blue)
+        format!(
+            "background-color: {}; color: {}; border: 1px solid {};",
+            self.blue, self.base, self.blue
+        )
     }
 
     pub fn button_secondary_style(&self) -> String {
-        format!("background-color: {}; color: {}; border: 1px solid {};", self.surface0, self.text, self.surface2)
+        format!(
+            "background-color: {}; color: {}; border: 1px solid {};",
+            self.surface0, self.text, self.surface2
+        )
     }
 
     pub fn button_danger_style(&self) -> String {
-        format!("background-color: {}; color: {}; border: 1px solid {};", self.red, self.base, self.red)
+        format!(
+            "background-color: {}; color: {}; border: 1px solid {};",
+            self.red, self.base, self.red
+        )
     }
 
     pub fn button_success_style(&self) -> String {
-        format!("background-color: {}; color: {}; border: 1px solid {};", self.green, self.base, self.green)
+        format!(
+            "background-color: {}; color: {}; border: 1px solid {};",
+            self.green, self.base, self.green
+        )
     }
 
     // 便利方法获取输入框样式
     pub fn input_style(&self) -> String {
-        format!("background-color: {}; color: {}; border: 1px solid {};", self.surface0, self.text, self.surface2)
+        format!(
+            "background-color: {}; color: {}; border: 1px solid {};",
+            self.surface0, self.text, self.surface2
+        )
     }
 
     // 便利方法获取卡片样式
     pub fn card_style(&self) -> String {
-        format!("background-color: {}; border: 1px solid {};", self.surface0, self.surface2)
+        format!(
+            "background-color: {}; border: 1px solid {};",
+            self.surface0, self.surface2
+        )
     }
 
     // 便利方法获取导航样式
     pub fn nav_style(&self) -> String {
-        format!("background-color: {}; border-bottom: 1px solid {};", self.mantle, self.surface0)
+        format!(
+            "background-color: {}; border-bottom: 1px solid {};",
+            self.mantle, self.surface0
+        )
     }
 
     // 便利方法获取内容背景样式

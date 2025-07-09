@@ -1,6 +1,6 @@
-use url_translator::types::api_types::*;
-use url_translator::theme::*;
 use url_translator::hooks::use_translation::TranslationStatus;
+use url_translator::theme::*;
+use url_translator::types::api_types::*;
 
 #[cfg(test)]
 mod tests {
@@ -30,16 +30,16 @@ mod tests {
     fn test_translation_status() {
         let status = TranslationStatus::Idle;
         assert!(matches!(status, TranslationStatus::Idle));
-        
+
         let status = TranslationStatus::ExtractingContent;
         assert!(matches!(status, TranslationStatus::ExtractingContent));
-        
+
         let status = TranslationStatus::Translating;
         assert!(matches!(status, TranslationStatus::Translating));
-        
+
         let status = TranslationStatus::Completed;
         assert!(matches!(status, TranslationStatus::Completed));
-        
+
         let status = TranslationStatus::Failed("error".to_string());
         assert!(matches!(status, TranslationStatus::Failed(_)));
     }
@@ -47,7 +47,7 @@ mod tests {
     #[test]
     fn test_config_validation() {
         let config = AppConfig::default();
-        
+
         // 测试默认值
         assert!(config.max_requests_per_second > 0);
         assert!(config.max_text_length > 0);
@@ -55,11 +55,11 @@ mod tests {
         assert!(!config.deeplx_api_url.is_empty());
         assert!(!config.jina_api_url.is_empty());
     }
-    
+
     #[test]
     fn test_language_codes() {
         let config = AppConfig::default();
-        
+
         // 测试语言代码格式
         assert!(config.default_source_lang == "auto" || config.default_source_lang.len() == 2);
         assert!(config.default_target_lang.len() == 2);
@@ -68,16 +68,19 @@ mod tests {
     #[test]
     fn test_config_serialization() {
         let config = AppConfig::default();
-        
+
         // 测试序列化
         let serialized = serde_json::to_string(&config).unwrap();
         assert!(!serialized.is_empty());
-        
+
         // 测试反序列化
         let deserialized: AppConfig = serde_json::from_str(&serialized).unwrap();
         assert_eq!(deserialized.default_source_lang, config.default_source_lang);
         assert_eq!(deserialized.default_target_lang, config.default_target_lang);
-        assert_eq!(deserialized.max_requests_per_second, config.max_requests_per_second);
+        assert_eq!(
+            deserialized.max_requests_per_second,
+            config.max_requests_per_second
+        );
     }
 
     #[test]
@@ -90,7 +93,7 @@ mod tests {
             target_lang: "ZH".to_string(),
             translated_at: "2023-01-01T00:00:00Z".to_string(),
         };
-        
+
         assert_eq!(result.original_url, "https://example.com");
         assert_eq!(result.title, "Test Title");
         assert_eq!(result.content, "Test Content");
@@ -102,13 +105,13 @@ mod tests {
     #[test]
     fn test_error_types() {
         use url_translator::error::AppError;
-        
+
         let error = AppError::network("网络错误");
         assert!(matches!(error, AppError::NetworkError { .. }));
-        
+
         let error = AppError::validation("field", "验证错误");
         assert!(matches!(error, AppError::ValidationError { .. }));
-        
+
         let error = AppError::config("配置错误");
         assert!(matches!(error, AppError::ConfigError { .. }));
     }
@@ -119,12 +122,12 @@ mod tests {
         fn is_valid_url(url: &str) -> bool {
             url.starts_with("https://") || url.starts_with("http://")
         }
-        
+
         assert!(is_valid_url("https://example.com"));
         assert!(is_valid_url("http://example.com"));
         assert!(is_valid_url("https://www.example.com/path"));
         assert!(is_valid_url("https://subdomain.example.com"));
-        
+
         assert!(!is_valid_url("not-a-url"));
         assert!(!is_valid_url("ftp://example.com"));
         assert!(!is_valid_url(""));
@@ -136,7 +139,7 @@ mod tests {
         fn is_valid_language_code(code: &str) -> bool {
             matches!(code, "auto" | "ZH" | "EN" | "JA" | "FR" | "DE" | "ES")
         }
-        
+
         // 测试有效语言代码
         assert!(is_valid_language_code("auto"));
         assert!(is_valid_language_code("ZH"));
@@ -145,7 +148,7 @@ mod tests {
         assert!(is_valid_language_code("FR"));
         assert!(is_valid_language_code("DE"));
         assert!(is_valid_language_code("ES"));
-        
+
         // 测试无效语言代码
         assert!(!is_valid_language_code(""));
         assert!(!is_valid_language_code("INVALID"));
@@ -158,16 +161,16 @@ mod tests {
         // 测试状态转换逻辑
         let mut status = TranslationStatus::Idle;
         assert!(matches!(status, TranslationStatus::Idle));
-        
+
         status = TranslationStatus::ExtractingContent;
         assert!(matches!(status, TranslationStatus::ExtractingContent));
-        
+
         status = TranslationStatus::Translating;
         assert!(matches!(status, TranslationStatus::Translating));
-        
+
         status = TranslationStatus::Completed;
         assert!(matches!(status, TranslationStatus::Completed));
-        
+
         status = TranslationStatus::Failed("Test error".to_string());
         if let TranslationStatus::Failed(msg) = status {
             assert_eq!(msg, "Test error");
@@ -179,7 +182,7 @@ mod tests {
     #[test]
     fn test_config_ranges() {
         let config = AppConfig::default();
-        
+
         // 测试配置值的合理范围
         assert!(config.max_requests_per_second >= 1 && config.max_requests_per_second <= 100);
         assert!(config.max_text_length >= 1000);
@@ -195,12 +198,12 @@ mod tests {
             ThemeVariant::Macchiato,
             ThemeVariant::Mocha,
         ];
-        
+
         for variant in variants.iter() {
             // 确保每个变体都能正确显示
             let display_str = format!("{}", variant);
             assert!(!display_str.is_empty());
-            
+
             // 确保每个变体都有对应的主题
             let theme = variant.theme();
             assert!(!theme.base.is_empty());
