@@ -7,5 +7,6 @@ pub mod pages;
 pub mod services;
 pub mod theme;
 pub mod types;
+pub mod utils;
 
 pub use app::App;

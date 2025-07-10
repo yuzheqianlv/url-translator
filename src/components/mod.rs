@@ -1,4 +1,5 @@
 pub mod batch_translation;
+pub mod bilingual_display;
 pub mod common;
 pub mod file_name_preview;
 pub mod header;
@@ -10,6 +11,7 @@ pub mod translation_result;
 pub mod url_input;
 
 pub use batch_translation::BatchTranslation;
+pub use bilingual_display::{BilingualDisplay, DisplayMode};
 pub use file_name_preview::{AdvancedFileNamePreview, BatchFileNamePreview, FileNamePreview};
 pub use preview_panel::PreviewPanel;
 pub use progress_indicator::ProgressIndicator;

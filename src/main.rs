@@ -8,6 +8,7 @@ mod pages;
 mod services;
 mod theme;
 mod types;
+mod utils;
 
 use app::App;
 

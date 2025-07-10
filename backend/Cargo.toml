@@ -1,0 +1,62 @@
+[package]
+name = "url-translator-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["URL Translator Team"]
+description = "Backend API service for URL Translator"
+license = "MIT"
+
+[dependencies]
+# Web Framework
+axum = { version = "0.7", features = ["macros", "multipart"] }
+tokio = { version = "1.0", features = ["full"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+hyper = { version = "1.0", features = ["full"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
+redis = { version = "0.24", features = ["tokio-comp"] }
+
+# Search Engine
+meilisearch-sdk = "0.26"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTTP Client
+reqwest = { version = "0.11", features = ["json"] }
+
+# Authentication
+jsonwebtoken = "9.0"
+argon2 = "0.5"
+
+# Configuration
+config = "0.13"
+dotenvy = "0.15"
+
+# Logging and Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error Handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+url = "2.5"
+sha2 = "0.10"
+
+# Validation
+validator = { version = "0.16", features = ["derive"] }
+
+# Rate Limiting
+tower-governor = "0.3"
+
+[dev-dependencies]
+tokio-test = "0.4"
+httpmock = "0.6"
+serde_test = "1.0"

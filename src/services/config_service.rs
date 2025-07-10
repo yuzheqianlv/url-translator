@@ -21,6 +21,15 @@ impl ConfigService {
     }
 
     pub fn save_config(&self, config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
-        LocalStorage::set("app_config", config).map_err(|e| format!("保存配置失败: {:?}", e).into())
+        // 保存完整配置到localStorage
+        LocalStorage::set("app_config", config).map_err(|e| -> Box<dyn std::error::Error> { 
+            format!("保存配置失败: {:?}", e).into() 
+        })?;
+        
+        // 同时保存到新的存储格式（用于环境变量兼容）
+        #[cfg(target_arch = "wasm32")]
+        config.save_to_storage();
+        
+        Ok(())
     }
 }
