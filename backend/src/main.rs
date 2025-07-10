@@ -16,15 +16,14 @@ mod middleware;
 mod models;
 mod routes;
 mod services;
-mod utils;
 
-use axum::Server;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tokio::net::TcpListener;
 
 use crate::config::AppConfig;
 use crate::database::Database;
@@ -60,7 +59,6 @@ async fn main() -> AppResult<()> {
                 .layer(TraceLayer::new_for_http())
                 .layer(CorsLayer::permissive()) // Configure CORS as needed
                 .layer(middleware::request_id::RequestIdLayer)
-                .layer(middleware::rate_limit::create_rate_limit_layer(&config))
         );
 
     // Create server address
@@ -68,7 +66,10 @@ async fn main() -> AppResult<()> {
     info!("Server starting on {}", addr);
 
     // Start server
-    match Server::bind(&addr).serve(app.into_make_service()).await {
+    let listener = TcpListener::bind(&addr).await?;
+    info!("Server listening on {}", addr);
+    
+    match axum::serve(listener, app).await {
         Ok(()) => {
             info!("Server stopped gracefully");
             Ok(())

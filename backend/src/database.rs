@@ -44,12 +44,12 @@ impl Database {
     pub async fn migrate(&self) -> AppResult<()> {
         info!("Running database migrations...");
         
-        sqlx::migrate!("../migrations")
+        sqlx::migrate!("./migrations")
             .run(&self.pool)
             .await
             .map_err(|e| {
                 warn!("Failed to run migrations: {}", e);
-                AppError::Database(e)
+                AppError::Internal(format!("Migration failed: {}", e))
             })?;
         
         info!("Database migrations completed successfully");

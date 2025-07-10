@@ -32,4 +32,19 @@ impl ConfigService {
         
         Ok(())
     }
+
+    /// 获取字符串配置值
+    pub async fn get_string(key: &str) -> Result<String, Box<dyn std::error::Error>> {
+        match LocalStorage::get::<String>(key) {
+            Ok(value) => Ok(value),
+            Err(e) => Err(format!("获取配置失败: {:?}", e).into()),
+        }
+    }
+
+    /// 设置字符串配置值
+    pub async fn set_string(key: &str, value: &str) -> Result<(), Box<dyn std::error::Error>> {
+        LocalStorage::set(key, value).map_err(|e| -> Box<dyn std::error::Error> {
+            format!("设置配置失败: {:?}", e).into()
+        })
+    }
 }

@@ -30,6 +30,12 @@ pub enum AppError {
     #[error("解析错误: {message}")]
     ParseError { message: String },
 
+    #[error("认证错误: {message}")]
+    AuthError { message: String },
+
+    #[error("权限不足: {message}")]
+    PermissionError { message: String },
+
     #[error("未知错误: {message}")]
     Unknown { message: String },
 }
@@ -63,6 +69,14 @@ impl AppError {
     pub fn api(service: impl Into<String>, message: impl Into<String>) -> Self {
         Self::ApiError {
             service: service.into(),
+            message: message.into(),
+        }
+    }
+
+    /// 简化的API错误创建方法（默认服务为"Backend"）
+    pub fn api_simple(message: impl Into<String>) -> Self {
+        Self::ApiError {
+            service: "Backend".into(),
             message: message.into(),
         }
     }
@@ -110,6 +124,18 @@ impl AppError {
         }
     }
 
+    pub fn auth(message: impl Into<String>) -> Self {
+        Self::AuthError {
+            message: message.into(),
+        }
+    }
+
+    pub fn permission(message: impl Into<String>) -> Self {
+        Self::PermissionError {
+            message: message.into(),
+        }
+    }
+
     pub fn unknown(message: impl Into<String>) -> Self {
         Self::Unknown {
             message: message.into(),
@@ -128,6 +154,8 @@ impl AppError {
             AppError::RateLimitError { .. } => ErrorSeverity::Low,
             AppError::FileError { .. } => ErrorSeverity::Medium,
             AppError::ParseError { .. } => ErrorSeverity::Medium,
+            AppError::AuthError { .. } => ErrorSeverity::High,
+            AppError::PermissionError { .. } => ErrorSeverity::High,
             AppError::Unknown { .. } => ErrorSeverity::High,
         }
     }
@@ -144,6 +172,8 @@ impl AppError {
             AppError::RateLimitError { .. } => "请求过于频繁，请稍后重试".to_string(),
             AppError::FileError { .. } => "文件操作失败".to_string(),
             AppError::ParseError { .. } => "数据解析失败".to_string(),
+            AppError::AuthError { .. } => "认证失败，请重新登录".to_string(),
+            AppError::PermissionError { .. } => "权限不足，请联系管理员".to_string(),
             AppError::Unknown { .. } => "发生未知错误，请稍后重试".to_string(),
         }
     }
@@ -185,6 +215,12 @@ impl AppError {
             AppError::ParseError { .. } => {
                 vec!["检查数据格式".to_string(), "刷新页面重试".to_string()]
             }
+            AppError::AuthError { .. } => {
+                vec!["重新登录".to_string(), "检查账号密码".to_string(), "清除浏览器缓存".to_string()]
+            }
+            AppError::PermissionError { .. } => {
+                vec!["联系管理员获取权限".to_string(), "检查账号状态".to_string()]
+            }
             AppError::Unknown { .. } => {
                 vec!["刷新页面重试".to_string(), "联系技术支持".to_string()]
             }
@@ -203,6 +239,8 @@ impl AppError {
             AppError::RateLimitError { .. } => true,
             AppError::FileError { .. } => true,
             AppError::ParseError { .. } => false,
+            AppError::AuthError { .. } => false,
+            AppError::PermissionError { .. } => false,
             AppError::Unknown { .. } => true,
         }
     }

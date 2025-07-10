@@ -2,6 +2,7 @@ use leptos::mount_to_body;
 
 mod app;
 mod components;
+mod config;
 mod error;
 mod hooks;
 mod pages;

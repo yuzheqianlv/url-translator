@@ -1,6 +1,7 @@
 // 库文件用于测试
 pub mod app;
 pub mod components;
+pub mod config;
 pub mod error;
 pub mod hooks;
 pub mod pages;

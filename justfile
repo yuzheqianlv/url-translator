@@ -7,11 +7,19 @@ default:
 
 # 开发服务器
 dev:
+    ./scripts/dev.sh
+
+# 开发服务器（简单模式）
+dev-simple:
     trunk serve --open
 
 # 构建项目
 build:
     trunk build --release
+
+# 生产构建
+build-prod:
+    ./scripts/build-prod.sh
 
 # 运行所有测试
 test:
@@ -76,11 +84,34 @@ install-deps:
     cargo install trunk
     cargo install wasm-pack
     cargo install cargo-llvm-cov
+    rustup target add wasm32-unknown-unknown
 
 # 项目初始化
 init:
     @just install-deps
+    @echo "复制环境变量配置文件..."
+    @cp .env.example .env || echo ".env 文件已存在"
     @echo "开发环境已初始化"
+    @echo "请编辑 .env 文件配置您的开发环境"
+
+# 环境配置
+setup-env:
+    @echo "设置环境配置..."
+    @cp .env.example .env || echo ".env 文件已存在"
+    @cp .env.local.example .env.local || echo ".env.local 文件已存在"
+    @echo "环境配置文件已创建，请根据需要修改配置"
+
+# 验证配置
+validate:
+    ./scripts/validate-config.sh
+
+# 检查环境
+check-env:
+    @echo "检查开发环境..."
+    @which trunk || echo "❌ Trunk 未安装"
+    @which rustc || echo "❌ Rust 未安装"
+    @rustup target list --installed | grep wasm32-unknown-unknown || echo "❌ WASM 目标未安装"
+    @echo "✅ 环境检查完成"
 
 # 发布构建
 release:

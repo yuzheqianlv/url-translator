@@ -93,6 +93,7 @@ pub struct BatchTranslationService {
     jina_service: JinaService,
     deeplx_service: DeepLXService,
     config: AppConfig,
+    #[allow(dead_code)]
     file_naming_service: FileNamingService,
 }
 
@@ -437,6 +438,7 @@ impl BatchTranslationService {
     }
 
     /// 清理标题，移除编号和特殊字符
+    #[allow(dead_code)]
     fn clean_title(&self, title: &str) -> String {
         // 移除类似 "**1.**" 这样的编号
         let clean = title.replace("**", "").trim().to_string();
@@ -681,6 +683,7 @@ impl BatchTranslationService {
     }
 
     /// 生成文件夹结构和文件名（保持层级结构）- 保留兼容性
+    #[allow(dead_code)]
     fn generate_folder_structure(&self, link: &DocumentLink) -> (String, String) {
         let folder_path = self.generate_smart_folder_path(&link.url);
         let file_name = self.generate_file_name_from_url_and_title(link);
@@ -705,6 +708,7 @@ impl BatchTranslationService {
     }
 
     /// 根据URL和标题生成文件名
+    #[allow(dead_code)]
     fn generate_file_name_from_url_and_title(&self, link: &DocumentLink) -> String {
         // 首先尝试从URL提取文件名
         if let Some(path) = link.url.split('/').next_back() {
@@ -741,6 +745,7 @@ impl BatchTranslationService {
     }
 
     /// 生成文件名 (保留原有方法以兼容性)
+    #[allow(dead_code)]
     fn generate_file_name(&self, link: &DocumentLink) -> String {
         self.generate_file_name_from_url_and_title(link)
     }

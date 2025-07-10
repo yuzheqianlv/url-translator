@@ -1,3 +1,4 @@
+pub mod auth_modal;
 pub mod batch_translation;
 pub mod bilingual_display;
 pub mod common;
@@ -10,9 +11,11 @@ pub mod theme_selector;
 pub mod translation_result;
 pub mod url_input;
 
+pub use auth_modal::AuthModal;
 pub use batch_translation::BatchTranslation;
 pub use bilingual_display::{BilingualDisplay, DisplayMode};
 pub use file_name_preview::{AdvancedFileNamePreview, BatchFileNamePreview, FileNamePreview};
+pub use header::Header;
 pub use preview_panel::PreviewPanel;
 pub use progress_indicator::ProgressIndicator;
 pub use theme_selector::ThemeSelector;

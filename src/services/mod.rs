@@ -1,3 +1,4 @@
+pub mod api_client;
 pub mod batch_service;
 pub mod config_service;
 pub mod content_processor;
