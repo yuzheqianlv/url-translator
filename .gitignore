@@ -105,3 +105,12 @@ debug_*.rs                  # 调试源文件
 # /translations/              # 翻译文件目录（如果是临时的）
 # /downloads/                 # 下载文件目录
 # /uploads/                   # 上传文件目录
+# Rust 编译产物
+target/
+backend/target/
+Cargo.lock
+
+# 其他常见忽略文件
+.DS_Store
+*.log
+node_modules/
