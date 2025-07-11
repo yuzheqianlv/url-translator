@@ -101,3 +101,70 @@ pub struct TranslationResult {
     pub target_lang: String,
     pub translated_at: String,
 }
+
+// Search API types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResponse {
+    pub results: Vec<SearchResult>,
+    pub total: i64,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
+    pub query: String,
+    pub search_time_ms: u64,
+    pub suggestions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub translation_id: String,
+    pub url: String,
+    pub title: Option<String>,
+    pub content_snippet: String,
+    pub source_language: String,
+    pub target_language: String,
+    pub project_name: Option<String>,
+    pub created_at: String,
+    pub relevance_score: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSuggestionsResponse {
+    pub suggestions: Vec<String>,
+    pub query: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryResponse {
+    pub history: Vec<SearchHistoryItem>,
+    pub total: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryItem {
+    pub query: String,
+    pub timestamp: String,
+    pub results_count: i64,
+}
+
+// Backend translation API types (for API client)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslationResponse {
+    pub id: String, // Using String instead of Uuid for frontend compatibility
+    pub url: String,
+    pub source_lang: String,
+    pub target_lang: String,
+    pub original_content: String,
+    pub translated_content: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub user_id: Option<String>,
+    pub project_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslationHistoryResponse {
+    pub translations: Vec<TranslationResponse>,
+    pub total: i64,
+    pub page: u32,
+    pub per_page: u32,
+}

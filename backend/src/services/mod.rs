@@ -33,8 +33,13 @@ impl Services {
         let auth_service = auth_service::AuthService::new(config, database.clone()).await?;
         let redis_service = redis_service::RedisService::new(config).await?;
         let user_service = user_service::UserService::new(config, database.clone()).await?;
-        let translation_service = translation_service::TranslationService::new(config, database.clone()).await?;
         let search_service = search_service::SearchService::new(config).await?;
+        
+        // Initialize translation service with search service for automatic indexing
+        let translation_service = translation_service::TranslationService::new(config, database.clone())
+            .await?
+            .with_search_service(search_service.clone());
+            
         let task_queue = task_queue::TaskQueueService::new(redis_service.clone());
         let websocket_manager = WebSocketManager::new();
         

@@ -1,5 +1,5 @@
 use crate::error::{ErrorDisplay, ErrorProvider};
-use crate::pages::{BatchPage, HistoryPage, HomePage, ProjectsPage, SettingsPage};
+use crate::pages::{BatchPage, HistoryPage, HomePage, ProjectsPage, SettingsPage, TranslationPage};
 use crate::components::{Header, NotificationContainer};
 use crate::theme::{use_theme_context, ThemeProvider};
 use crate::hooks::AsyncTranslationProvider;
@@ -30,6 +30,7 @@ fn AppContent() -> impl IntoView {
                 <main class="container mx-auto px-4 py-8">
                     <Routes>
                         <Route path="/" view=HomePage/>
+                        <Route path="/translate" view=TranslationPage/>
                         <Route path="/batch" view=BatchPage/>
                         <Route path="/settings" view=SettingsPage/>
                         <Route path="/history" view=HistoryPage/>

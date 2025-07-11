@@ -47,16 +47,30 @@ pub struct ApiClient {
 
 impl ApiClient {
     /// 创建新的API客户端
-    pub fn new(config: ApiConfig) -> Self {
+    pub fn new() -> Result<Self, String> {
+        let config = ApiConfig::default();
         let client = Client::builder()
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-        Self {
+        Ok(Self {
             client,
             config,
             auth_token: None,
-        }
+        })
+    }
+
+    /// 创建带自定义配置的API客户端
+    pub fn with_config(config: ApiConfig) -> Result<Self, String> {
+        let client = Client::builder()
+            .build()
+            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+        Ok(Self {
+            client,
+            config,
+            auth_token: None,
+        })
     }
 
     /// 设置认证token
@@ -494,8 +508,8 @@ impl ApiClient {
     }
 
     /// 获取特定翻译
-    pub async fn get_translation(&self, translation_id: &str) -> Result<TranslationResponse, String> {
-        let url = self.build_url(&format!("/translations/history/{}", translation_id));
+    pub async fn get_translation(&self, translation_id: uuid::Uuid) -> Result<TranslationResponse, String> {
+        let url = self.build_url(&format!("/translations/{}", translation_id));
         
         let response = self.client
             .get(&url)
@@ -812,14 +826,12 @@ impl ApiClient {
     }
 
     /// 获取搜索建议
-    pub async fn get_search_suggestions(&self, query: &str, limit: Option<u32>) -> Result<Vec<String>, String> {
+    pub async fn get_search_suggestions(&self, query: &str, limit: usize) -> Result<crate::types::api_types::SearchSuggestionsResponse, String> {
         let mut url = self.build_url("/search/suggestions");
         
         let mut params = Vec::new();
         params.push(format!("query={}", urlencoding::encode(query)));
-        if let Some(l) = limit {
-            params.push(format!("limit={}", l));
-        }
+        params.push(format!("limit={}", limit));
         
         url.push('?');
         url.push_str(&params.join("&"));
@@ -832,15 +844,12 @@ impl ApiClient {
             .map_err(|e| format!("获取搜索建议失败: {}", e))?;
 
         if response.status().is_success() {
-            let suggestions_response: serde_json::Value = response
+            let suggestions_response: crate::types::api_types::SearchSuggestionsResponse = response
                 .json()
                 .await
                 .map_err(|e| format!("解析搜索建议失败: {}", e))?;
             
-            let suggestions: Vec<String> = serde_json::from_value(suggestions_response["suggestions"].clone())
-                .map_err(|e| format!("解析搜索建议数据失败: {}", e))?;
-            
-            Ok(suggestions)
+            Ok(suggestions_response)
         } else {
             let error_text = response
                 .text()

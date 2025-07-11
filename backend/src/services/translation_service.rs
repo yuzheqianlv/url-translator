@@ -3,6 +3,7 @@
 use crate::config::AppConfig;
 use crate::database::Database;
 use crate::error::AppResult;
+use crate::services::search_service::SearchService;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -15,6 +16,7 @@ pub struct TranslationService {
     deeplx_client: Client,
     jina_client: Client,
     config: AppConfig,
+    search_service: Option<SearchService>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,7 +69,19 @@ impl TranslationService {
                 crate::error::AppError::Internal(format!("Failed to create Jina client: {}", e))
             })?,
             config: config.clone(),
+            search_service: None,
         })
+    }
+
+    /// Set search service for automatic indexing (called after service initialization)
+    pub fn set_search_service(&mut self, search_service: SearchService) {
+        self.search_service = Some(search_service);
+    }
+
+    /// Enable automatic search indexing by providing search service
+    pub fn with_search_service(mut self, search_service: SearchService) -> Self {
+        self.search_service = Some(search_service);
+        self
     }
 
     /// Translate a URL - Main translation workflow
@@ -414,6 +428,44 @@ impl TranslationService {
             .await
             .map_err(|e| crate::error::AppError::Database(e))?;
         
+        // Auto-index the translation in search service if available
+        self.index_translation_for_search(translation).await?;
+        
+        Ok(())
+    }
+
+    /// Index translation in search service for full-text search
+    async fn index_translation_for_search(&self, translation: &TranslationResponse) -> AppResult<()> {
+        if let Some(search_service) = &self.search_service {
+            // Only index for authenticated users (skip if user_id is None)
+            if let Some(user_id) = translation.user_id {
+                let search_document = search_service.create_search_document(
+                    &translation.id.to_string(),
+                    &translation.url,
+                    &translation.original_content,
+                    &translation.translated_content,
+                    &translation.source_lang,
+                    &translation.target_lang,
+                    &user_id.to_string(),
+                    translation.created_at,
+                );
+                
+                match search_service.add_document(search_document).await {
+                    Ok(()) => {
+                        tracing::info!("Translation {} successfully indexed for search", translation.id);
+                    }
+                    Err(e) => {
+                        // Log the error but don't fail the translation save
+                        tracing::error!("Failed to index translation {} for search: {}", translation.id, e);
+                    }
+                }
+            } else {
+                tracing::debug!("Skipping search indexing for translation {} (no user_id)", translation.id);
+            }
+        } else {
+            tracing::debug!("Search service not available, skipping indexing for translation {}", translation.id);
+        }
+        
         Ok(())
     }
     
@@ -483,6 +535,28 @@ impl TranslationService {
         
         if result.rows_affected() == 0 {
             return Err(crate::error::AppError::NotFound("Translation not found".to_string()));
+        }
+        
+        // Remove from search index
+        self.remove_translation_from_search(&translation_id.to_string()).await?;
+        
+        Ok(())
+    }
+
+    /// Remove translation from search index
+    async fn remove_translation_from_search(&self, translation_id: &str) -> AppResult<()> {
+        if let Some(search_service) = &self.search_service {
+            match search_service.delete_document(translation_id).await {
+                Ok(()) => {
+                    tracing::info!("Translation {} successfully removed from search index", translation_id);
+                }
+                Err(e) => {
+                    // Log the error but don't fail the deletion
+                    tracing::error!("Failed to remove translation {} from search index: {}", translation_id, e);
+                }
+            }
+        } else {
+            tracing::debug!("Search service not available, skipping search index removal for translation {}", translation_id);
         }
         
         Ok(())

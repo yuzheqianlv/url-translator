@@ -403,7 +403,7 @@ impl TaskProcessor {
         
         // 执行翻译
         match self.translation_service.translate_url(translation_request).await {
-            Ok(_translation_response) => {
+            Ok(translation_response) => {
                 // 翻译成功
                 self.task_queue.update_task_progress(
                     task_id,
@@ -411,8 +411,11 @@ impl TaskProcessor {
                     "正在保存翻译结果...".to_string(),
                 ).await?;
                 
+                // Note: Search indexing is automatically handled in translation_service.save_translation()
+                // No additional indexing needed here since translate_url() already calls save_translation()
+                
                 self.task_queue.mark_task_completed(task_id).await?;
-                tracing::info!("翻译任务 {} 完成", task_id);
+                tracing::info!("翻译任务 {} 完成，已自动索引到搜索引擎", task_id);
             }
             Err(e) => {
                 // 翻译失败

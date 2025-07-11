@@ -205,14 +205,11 @@ pub const CATPPUCCIN_LATTE: CatppuccinLatte = CatppuccinLatte {
 - **三种输出模式**: 原文、译文、双语对照可切换显示
 
 #### 批量翻译模式 (整合到单页)
-- **批量URL输入**: 支持多行URL输入和文件导入
+- **批量URL输入**: 支持多行URL输入和文件导入,保持提取目录结构URL的功能
 - **队列可视化**: 显示翻译队列状态和预计完成时间
 - **并行处理管理**: 智能调度多个翻译任务，避免API限流
 
-#### 翻译增强功能
-- **代码块保护**: 识别并跳过代码段落，避免翻译技术代码
-- **专业术语保持**: 技术文档专用词汇保护机制
-- **上下文连贯性**: 长文档分块翻译时保持语义连贯
+
 
 ### 3. 📚 个人历史组件 (用户中心)
 - **个人搜索界面**: 仅搜索当前用户的翻译文件
@@ -633,7 +630,7 @@ sortable_fields: ["created_at", "title"]
 pub fn FileLibrarySearch() -> impl IntoView {
     let (search_query, set_search_query) = create_signal(String::new());
     let (search_results, set_search_results) = create_signal(Vec::<SearchResult>::new());
-    
+
     // 防抖搜索
     let debounced_search = create_memo(move |_| {
         let query = search_query.get();
@@ -644,7 +641,7 @@ pub fn FileLibrarySearch() -> impl IntoView {
             });
         }
     });
-    
+
     view! {
         <div class="search-container">
             <SearchInput query=search_query set_query=set_search_query />
