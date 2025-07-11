@@ -30,14 +30,56 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            deeplx_api_url: "https://deepl3.fileaiwork.online/dptrans?token=ej0ab47388ed86e843de9f499e52e6e664ae1m491cad7bf1.bIrYaAAAAAA=.b9c326068ac3c37ff36b8fea77867db51ddf235150945d7ad43472d68581e6c4pd14&newllm=1".to_string(),
-            jina_api_url: "https://r.jina.ai".to_string(),
-            default_source_lang: "auto".to_string(),
-            default_target_lang: "ZH".to_string(),
-            max_requests_per_second: 10, // 提高到每秒10个请求
-            max_text_length: 5000, // 提高到5000字符
-            max_paragraphs_per_request: 10, // 提高到10个段落
+            // 使用环境变量或默认的本地API地址，避免硬编码敏感信息
+            deeplx_api_url: Self::get_env_or_default("DEEPLX_API_URL", "http://localhost:1188/translate"),
+            jina_api_url: Self::get_env_or_default("JINA_API_URL", "https://r.jina.ai"),
+            default_source_lang: Self::get_env_or_default("DEFAULT_SOURCE_LANG", "auto"),
+            default_target_lang: Self::get_env_or_default("DEFAULT_TARGET_LANG", "ZH"),
+            max_requests_per_second: Self::get_env_or_default("MAX_REQUESTS_PER_SECOND", "10").parse().unwrap_or(10),
+            max_text_length: Self::get_env_or_default("MAX_TEXT_LENGTH", "5000").parse().unwrap_or(5000),
+            max_paragraphs_per_request: Self::get_env_or_default("MAX_PARAGRAPHS_PER_REQUEST", "10").parse().unwrap_or(10),
             file_naming: FileNamingConfig::default(),
+        }
+    }
+}
+
+impl AppConfig {
+    /// 从环境变量获取值，如果不存在则使用默认值
+    /// 注意：在WASM环境中，环境变量需要在编译时设置
+    fn get_env_or_default(key: &str, default: &str) -> String {
+        // 在WASM环境中，我们无法在运行时读取环境变量
+        // 可以考虑使用编译时环境变量或从localStorage读取配置
+        #[cfg(target_arch = "wasm32")]
+        {
+            // WASM环境：优先从localStorage读取，然后使用默认值
+            if let Ok(Some(storage)) = web_sys::window().unwrap().local_storage() {
+                if let Ok(Some(value)) = storage.get_item(&format!("config_{}", key.to_lowercase())) {
+                    if !value.is_empty() {
+                        return value;
+                    }
+                }
+            }
+            default.to_string()
+        }
+        
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            // 非WASM环境：从环境变量读取
+            std::env::var(key).unwrap_or_else(|_| default.to_string())
+        }
+    }
+    
+    /// 保存配置到localStorage（WASM环境）
+    #[cfg(target_arch = "wasm32")]
+    pub fn save_to_storage(&self) {
+        if let Ok(Some(storage)) = web_sys::window().unwrap().local_storage() {
+            let _ = storage.set_item("config_deeplx_api_url", &self.deeplx_api_url);
+            let _ = storage.set_item("config_jina_api_url", &self.jina_api_url);
+            let _ = storage.set_item("config_default_source_lang", &self.default_source_lang);
+            let _ = storage.set_item("config_default_target_lang", &self.default_target_lang);
+            let _ = storage.set_item("config_max_requests_per_second", &self.max_requests_per_second.to_string());
+            let _ = storage.set_item("config_max_text_length", &self.max_text_length.to_string());
+            let _ = storage.set_item("config_max_paragraphs_per_request", &self.max_paragraphs_per_request.to_string());
         }
     }
 }
@@ -58,4 +100,71 @@ pub struct TranslationResult {
     pub source_lang: String,
     pub target_lang: String,
     pub translated_at: String,
+}
+
+// Search API types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResponse {
+    pub results: Vec<SearchResult>,
+    pub total: i64,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
+    pub query: String,
+    pub search_time_ms: u64,
+    pub suggestions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub translation_id: String,
+    pub url: String,
+    pub title: Option<String>,
+    pub content_snippet: String,
+    pub source_language: String,
+    pub target_language: String,
+    pub project_name: Option<String>,
+    pub created_at: String,
+    pub relevance_score: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSuggestionsResponse {
+    pub suggestions: Vec<String>,
+    pub query: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryResponse {
+    pub history: Vec<SearchHistoryItem>,
+    pub total: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryItem {
+    pub query: String,
+    pub timestamp: String,
+    pub results_count: i64,
+}
+
+// Backend translation API types (for API client)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslationResponse {
+    pub id: String, // Using String instead of Uuid for frontend compatibility
+    pub url: String,
+    pub source_lang: String,
+    pub target_lang: String,
+    pub original_content: String,
+    pub translated_content: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub user_id: Option<String>,
+    pub project_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslationHistoryResponse {
+    pub translations: Vec<TranslationResponse>,
+    pub total: i64,
+    pub page: u32,
+    pub per_page: u32,
 }

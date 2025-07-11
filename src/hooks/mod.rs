@@ -1,9 +1,15 @@
+pub mod use_async_translation;
+pub mod use_auth;
+pub mod use_backend_translation;
 pub mod use_batch_translation;
 pub mod use_config;
 pub mod use_history;
 pub mod use_preview;
 pub mod use_translation;
 
+pub use use_async_translation::*;
+pub use use_auth::*;
+pub use use_backend_translation::*;
 pub use use_batch_translation::*;
 pub use use_config::*;
 pub use use_history::*;

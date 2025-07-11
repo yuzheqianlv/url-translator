@@ -1,10 +1,40 @@
 [build]
 target = "index.html"
 dist = "dist"
+# 启用环境变量支持
+public_url = "/"
+# 生产构建优化
+release = false
 
 [watch]
 watch = ["src", "index.html"]
+ignore = ["target"]
 
 [serve]
-# 不指定 address 和 port，让 Trunk 自动选择
+# 设置默认端口为3001
+port = 3001
 open = true
+# 启用热重载
+ws_protocol = "ws"
+
+# [clean]
+# # 自动清理过期文件
+# dist = "dist"
+# cargo = false
+
+# 环境变量配置
+[env]
+# 这些变量会在构建时注入到WASM中
+FRONTEND_API_BASE_URL = { from_env = "FRONTEND_API_BASE_URL", default = "http://localhost:3002/api/v1" }
+FRONTEND_API_TIMEOUT_SECONDS = { from_env = "FRONTEND_API_TIMEOUT_SECONDS", default = "30" }
+ENABLE_PROJECT_MANAGEMENT = { from_env = "ENABLE_PROJECT_MANAGEMENT", default = "true" }
+ENABLE_HISTORY = { from_env = "ENABLE_HISTORY", default = "true" }
+ENABLE_SEARCH = { from_env = "ENABLE_SEARCH", default = "true" }
+ENABLE_BATCH_TRANSLATION = { from_env = "ENABLE_BATCH_TRANSLATION", default = "true" }
+DEFAULT_THEME = { from_env = "DEFAULT_THEME", default = "latte" }
+DEBUG_MODE = { from_env = "DEBUG_MODE", default = "true" }
+
+# 开发环境特定配置
+[serve.env]
+RUST_LOG = { from_env = "RUST_LOG", default = "debug" }
+WASM_LOG = { from_env = "WASM_LOG", default = "debug" }

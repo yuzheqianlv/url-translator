@@ -1,0 +1,66 @@
+# URL Translator Backend Configuration
+# Default configuration file
+
+[server]
+port = 3002
+host = "0.0.0.0"
+workers = 4
+max_connections = 1000
+request_timeout_seconds = 30
+
+[database]
+url = "postgres://admin:4%29LzTzN%29mT4Zn25y%5Ep43k.q%22%2C%3BN%7D%214W%3Fdm5206@postgres.markdown-manager.orb.local:5432/markdown_manager"
+max_connections = 5
+min_connections = 1
+connect_timeout_seconds = 30
+max_lifetime_seconds = 3600
+idle_timeout_seconds = 600
+
+[redis]
+url = "redis://:4%29LzTzN%29mT4Zn25y%5Ep43k.q%22%2C%3BN%7D%214W%3Fdm5206@redis.markdown-manager.orb.local:6379"
+max_connections = 10
+connect_timeout_seconds = 5
+command_timeout_seconds = 10
+default_ttl_seconds = 3600
+
+[meilisearch]
+url = "http://meilisearch.markdown-manager.orb.local:7700"
+api_key = "4)LzTzN)mT4Zn25y^p43k.q\",;N}!4W?dm5206"
+connect_timeout_seconds = 10
+request_timeout_seconds = 30
+index_prefix = "url_translator_"
+max_search_results = 100
+
+[auth]
+jwt_secret = "default_secret"
+jwt_expiry_hours = 24
+password_min_length = 8
+max_login_attempts = 5
+lockout_duration_minutes = 15
+
+[rate_limiting]
+requests_per_minute = 60
+burst_size = 10
+window_size_seconds = 60
+
+[translation]
+max_text_length = 5000
+max_batch_size = 100
+default_timeout_seconds = 30
+max_concurrent_requests = 5
+max_paragraphs_per_request = 10
+max_requests_per_second = 10
+deeplx_api_url = "https://deepl3.fileaiwork.online/dptrans?token=ej0ab47388ed86e843de9f499e52e6e664ae1m491cad7bf1.bIrYaAAAAAA=.b9c326068ac3c37ff36b8fea77867db51ddf235150945d7ad43472d68581e6c4pd14&newllm=1"
+jina_api_url = "https://r.jina.ai"
+
+[api]
+max_file_size_mb = 10
+allowed_file_types = ["txt", "md", "html"]
+default_page_size = 20
+max_page_size = 100
+
+[logging]
+level = "info"
+format = "json"
+file_rotation = "daily"
+max_log_files = 7

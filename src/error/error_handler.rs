@@ -95,7 +95,7 @@ impl ErrorHandler {
 
     /// 获取当前错误
     pub fn get_current_error(&self) -> Option<ErrorContext> {
-        self.error_state.get().current_error
+        self.error_state.get_untracked().current_error
     }
 
     /// 获取当前错误的严重程度

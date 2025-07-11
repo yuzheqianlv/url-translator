@@ -1,265 +1,261 @@
-use crate::components::{
-    FileNamePreview, PreviewPanel, ProgressIndicator, TranslationResult, UrlInput,
-};
-use crate::hooks::use_config::use_config;
-use crate::hooks::use_translation::use_translation;
-use crate::services::file_naming_service::{FileNamingContext, FileNamingService};
-use crate::theme::use_theme_context;
-use chrono::Utc;
+//! Homepage - File Library Search Center
+//! 
+//! Transformed from a translation-focused interface to a search-centered file management system.
+//! This page now serves as the primary interface for searching and managing translated documents.
+
 use leptos::*;
 use leptos_router::*;
-use wasm_bindgen::prelude::*;
-use web_sys::{window, Blob, Url};
+
+use crate::components::{
+    AuthRequired, 
+    file_library::{SearchBar, SearchResults, FileViewer},
+};
+use crate::hooks::use_auth::{use_auth, AuthStatus};
+use crate::services::api_client::{ApiClient, SearchRequest};
+use crate::types::api_types::{SearchResponse, SearchResult};
+use crate::theme::use_theme_context;
 
 #[component]
 pub fn HomePage() -> impl IntoView {
-    let translation = use_translation();
+    let auth = use_auth();
     let theme_context = use_theme_context();
-    let config_hook = use_config();
-    let (url, set_url) = create_signal(String::new());
-    let (show_preview, set_show_preview) = create_signal(false);
+    
+    // Search state
+    let (search_query, set_search_query) = create_signal(String::new());
+    let (search_results, set_search_results) = create_signal::<Option<SearchResponse>>(None);
+    let (is_searching, set_is_searching) = create_signal(false);
+    let (search_suggestions, set_search_suggestions) = create_signal(Vec::<String>::new());
+    
+    // File viewer state
+    let (selected_file, set_selected_file) = create_signal::<Option<SearchResult>>(None);
+    let (is_viewer_open, set_is_viewer_open) = create_signal(false);
+    
+    // Recent files state (shown when no search is active)
+    let (recent_files, set_recent_files) = create_signal::<Option<SearchResponse>>(None);
+    let (is_loading_recent, set_is_loading_recent) = create_signal(false);
 
-    let handle_translate = move |_| {
-        let url_value = url.get();
-        translation.translate.set(Some(url_value));
-    };
+    // Load recent files on component mount
+    create_effect(move |_| {
+        if let AuthStatus::Authenticated(_) = auth.auth_status.get() {
+            set_is_loading_recent.set(true);
+            spawn_local(async move {
+                if let Ok(api_client) = ApiClient::new() {
+                    let request = SearchRequest {
+                        query: "".to_string(), // Empty query to get recent files
+                        page: Some(1),
+                        per_page: Some(10),
+                        project_id: None,
+                        source_language: None,
+                        target_language: None,
+                    };
+                    
+                    match api_client.search_translations(request).await {
+                        Ok(response) => {
+                            set_recent_files.set(Some(response));
+                        }
+                        Err(e) => {
+                            web_sys::console::log_1(&format!("Failed to load recent files: {}", e).into());
+                        }
+                    }
+                }
+                set_is_loading_recent.set(false);
+            });
+        }
+    });
 
-    let download_markdown = move |_| {
-        let content = translation.translation_result.get();
-        if content.is_empty() {
+    // Handle search
+    let handle_search = move |query: String| {
+        if query.trim().is_empty() {
+            set_search_results.set(None);
             return;
         }
 
-        // 使用智能文件命名服务生成文件名
-        let current_url = url.get();
-        let config = config_hook.config.get();
-        let mut naming_service = FileNamingService::new(config.file_naming);
-
-        // 从翻译结果中提取标题（如果有的话）
-        let title = extract_title_from_content(&content).unwrap_or_else(|| {
-            // 如果无法从内容中提取标题，尝试从URL中提取
-            extract_title_from_url(&current_url)
+        set_is_searching.set(true);
+        let query_clone = query.clone();
+        set_search_query.set(query);
+        
+        spawn_local(async move {
+            if let Ok(api_client) = ApiClient::new() {
+                let request = SearchRequest {
+                    query: query_clone,
+                    page: Some(1),
+                    per_page: Some(20),
+                    project_id: None,
+                    source_language: None,
+                    target_language: None,
+                };
+                
+                match api_client.search_translations(request).await {
+                    Ok(response) => {
+                        set_search_results.set(Some(response));
+                    }
+                    Err(e) => {
+                        web_sys::console::log_1(&format!("Search failed: {}", e).into());
+                        set_search_results.set(Some(SearchResponse {
+                            results: vec![],
+                            total: 0,
+                            page: 1,
+                            per_page: 20,
+                            total_pages: 0,
+                            query: query_clone,
+                            search_time_ms: 0,
+                            suggestions: vec![],
+                        }));
+                    }
+                }
+            }
+            set_is_searching.set(false);
         });
+    };
 
-        let context = FileNamingContext {
-            url: current_url,
-            title,
-            order: None,
-            timestamp: Utc::now(),
-            content_type: "article".to_string(),
-            folder_path: None,
-        };
+    // Handle search suggestions
+    let handle_suggestions = move |suggestions: Vec<String>| {
+        set_search_suggestions.set(suggestions);
+    };
 
-        let naming_result = naming_service.generate_file_name(&context);
-        let _ = create_and_download_file(&content, &naming_result.file_name, "text/markdown");
+    // Handle file selection
+    let handle_file_select = move |file: SearchResult| {
+        set_selected_file.set(Some(file));
+        set_is_viewer_open.set(true);
+    };
+
+    // Handle viewer close
+    let handle_viewer_close = Callback::new(move |_: ()| {
+        set_is_viewer_open.set(false);
+        set_selected_file.set(None);
+    });
+
+    // Quick translation entry (floating action button)
+    let navigate_to_translation = move |_| {
+        let navigate = use_navigate();
+        navigate("/translate", Default::default());
     };
 
     view! {
-        <div class="max-w-4xl mx-auto space-y-6">
-            <div class="text-center">
-                <h1 class="text-3xl font-bold mb-4" style=move || theme_context.get().theme.text_style()>
-                    "URL内容翻译工具"
-                </h1>
-                <p class="mb-6" style=move || theme_context.get().theme.subtext_style()>
-                    "智能翻译网页内容，支持代码块保护，提供单页和批量翻译模式"
-                </p>
-            </div>
-
-            // 翻译模式选择卡片
-            <div class="grid md:grid-cols-2 gap-6 mb-8">
-                // 单页翻译卡片
-                <div class="rounded-lg shadow-lg p-6 transition-all hover:shadow-xl" style=move || theme_context.get().theme.card_style()>
-                    <div class="flex items-center mb-4">
-                        <div class="p-2 rounded-lg mr-3" style=move || theme_context.get().theme.content_bg_style()>
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style=move || format!("color: {};", theme_context.get().theme.info_color())>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold" style=move || theme_context.get().theme.text_style()>"单页翻译"</h3>
-                            <p class="text-sm" style=move || theme_context.get().theme.subtext_style()>"翻译单个网页内容"</p>
-                        </div>
-                    </div>
-                    <p class="text-sm mb-4" style=move || theme_context.get().theme.subtext_style()>
-                        "输入网页URL，快速翻译单个页面的内容。支持自动提取正文、保护代码块、生成Markdown文件。"
-                    </p>
-                    <div class="text-sm font-medium" style=move || format!("color: {};", theme_context.get().theme.success_color())>
-                        "✓ 当前模式"
-                    </div>
-                </div>
-
-                // 批量翻译卡片
-                <div class="rounded-lg shadow-lg p-6 transition-all hover:shadow-xl cursor-pointer"
-                     style=move || theme_context.get().theme.card_style()
-                     on:click=move |_| {
-                         let navigate = use_navigate();
-                         navigate("/batch", Default::default());
-                     }>
-                    <div class="flex items-center mb-4">
-                        <div class="p-2 rounded-lg mr-3" style=move || theme_context.get().theme.content_bg_style()>
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style=move || format!("color: {};", theme_context.get().theme.success_color())>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold" style=move || theme_context.get().theme.text_style()>"批量翻译"</h3>
-                            <p class="text-sm" style=move || theme_context.get().theme.subtext_style()>"翻译整个文档网站"</p>
-                        </div>
-                    </div>
-                    <p class="text-sm mb-4" style=move || theme_context.get().theme.subtext_style()>
-                        "输入文档网站首页，自动解析目录结构，批量翻译所有页面并打包下载。适合翻译完整的技术文档。"
-                    </p>
-                    <div class="text-sm font-medium" style=move || format!("color: {};", theme_context.get().theme.success_color())>
-                        "→ 点击切换到批量翻译"
+        <div class="min-h-screen" style=move || theme_context.get().theme.bg_style()>
+            // Header section with search
+            <div class="w-full bg-white shadow-sm border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    // Title and search bar
+                    <div class="text-center mb-6">
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                            "🔍 文件库搜索"
+                        </h1>
+                        <p class="text-gray-600 mb-6">
+                            "搜索和管理您的翻译文件"
+                        </p>
+                        
+                        <AuthRequired message="请先登录后搜索您的翻译文件".to_string()>
+                            <SearchBar
+                                query=search_query
+                                set_query=set_search_query
+                                on_search=Callback::new(handle_search)
+                                on_suggestions=Callback::new(handle_suggestions)
+                                is_loading=is_searching
+                                placeholder="搜索所有翻译文件...".to_string()
+                            />
+                        </AuthRequired>
                     </div>
                 </div>
             </div>
 
-            <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
-                <div class="space-y-4">
-                    <UrlInput
-                        url=url
-                        set_url=set_url
-                        on_submit=handle_translate
-                        is_loading=translation.is_loading
-                    />
+            // Main content area
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <AuthRequired message="登录后即可搜索和管理您的翻译历史".to_string()>
+                    // Search results or recent files
+                    <Show
+                        when=move || search_results.get().is_some()
+                        fallback=move || view! {
+                            // Recent files section
+                            <div class="space-y-6">
+                                <div class="flex items-center justify-between">
+                                    <h2 class="text-xl font-semibold text-gray-900">
+                                        "📁 最近翻译的文件"
+                                    </h2>
+                                    <div class="text-sm text-gray-500">
+                                        "显示最近10个翻译文件"
+                                    </div>
+                                </div>
+                                
+                                <Show when=is_loading_recent>
+                                    <div class="flex justify-center items-center py-12">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                        <span class="ml-3 text-gray-600">"加载中..."</span>
+                                    </div>
+                                </Show>
 
-                    // 预览切换按钮
-                    <div class="flex items-center gap-4">
-                        <button
-                            type="button"
-                            class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors"
-                            class:bg-blue-100=move || show_preview.get()
-                            class:border-blue-300=move || show_preview.get()
-                            class:text-blue-800=move || show_preview.get()
-                            class:dark:bg-blue-900=move || show_preview.get()
-                            class:dark:border-blue-700=move || show_preview.get()
-                            class:dark:text-blue-200=move || show_preview.get()
-                            class:bg-gray-100=move || !show_preview.get()
-                            class:border-gray-300=move || !show_preview.get()
-                            class:text-gray-700=move || !show_preview.get()
-                            class:dark:bg-gray-700=move || !show_preview.get()
-                            class:dark:border-gray-600=move || !show_preview.get()
-                            class:dark:text-gray-300=move || !show_preview.get()
-                            on:click=move |_| set_show_preview.update(|show| *show = !*show)
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                            </svg>
-                            {move || if show_preview.get() { "隐藏预览" } else { "显示预览" }}
-                        </button>
+                                <Show when=move || !is_loading_recent.get() && recent_files.get().is_some()>
+                                    <SearchResults
+                                        results=recent_files
+                                        on_file_select=Callback::new(handle_file_select)
+                                        is_loading=create_signal(false).0
+                                    />
+                                </Show>
 
-                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                            "预览功能可以在正式翻译前查看前几段的翻译效果"
-                        </span>
-                    </div>
-
-                    <ProgressIndicator
-                        is_loading=translation.is_loading
-                        progress_message=translation.progress_message
-                        status=translation.status
-                    />
-
-                    // 文件名预览
-                    <Show when=move || !url.get().is_empty()>
-                        <FileNamePreview
-                            url=url
+                                <Show when=move || !is_loading_recent.get() && recent_files.get().map(|r| r.total == 0).unwrap_or(false)>
+                                    <div class="text-center py-12">
+                                        <div class="mx-auto h-12 w-12 text-gray-400 mb-4">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                            </svg>
+                                        </div>
+                                        <h3 class="text-lg font-medium text-gray-900 mb-2">"暂无翻译文件"</h3>
+                                        <p class="text-gray-500 mb-4">"开始您的第一次翻译吧"</p>
+                                        <button
+                                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                            on:click=navigate_to_translation
+                                        >
+                                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                            </svg>
+                                            "开始翻译"
+                                        </button>
+                                    </div>
+                                </Show>
+                            </div>
+                        }
+                    >
+                        // Search results
+                        <SearchResults
+                            results=search_results
+                            on_file_select=Callback::new(handle_file_select)
+                            is_loading=is_searching
                         />
                     </Show>
+                </AuthRequired>
+            </div>
+
+            // Quick translation floating action
+            <div class="fixed bottom-6 right-6">
+                <button
+                    class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-105"
+                    on:click=navigate_to_translation
+                    title="快速翻译"
+                >
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+                    </svg>
+                </button>
+            </div>
+
+            // Right corner menu tooltip
+            <div class="fixed top-4 right-4 z-40">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 shadow-sm">
+                    <div class="flex items-center">
+                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>"点击右上角菜单访问其他功能"</span>
+                    </div>
                 </div>
             </div>
 
-            // 预览面板
-            <PreviewPanel
-                url=url
-                show_preview=show_preview
-            />
-
-            <TranslationResult
-                translation_result=translation.translation_result
-                on_download=download_markdown
+            // File viewer modal
+            <FileViewer
+                is_open=is_viewer_open
+                on_close=handle_viewer_close
+                file=selected_file
             />
         </div>
     }
-}
-
-fn create_and_download_file(
-    content: &str,
-    filename: &str,
-    _mime_type: &str,
-) -> Result<(), JsValue> {
-    let window = window().ok_or("No window object")?;
-    let document = window.document().ok_or("No document object")?;
-
-    let blob_parts = js_sys::Array::new();
-    blob_parts.push(&JsValue::from_str(content));
-
-    let blob = Blob::new_with_str_sequence(&blob_parts)?;
-    let url = Url::create_object_url_with_blob(&blob)?;
-
-    let anchor = document.create_element("a")?;
-    anchor.set_attribute("href", &url)?;
-    anchor.set_attribute("download", filename)?;
-    anchor.set_attribute("style", "display: none")?;
-
-    document.body().unwrap().append_child(&anchor)?;
-
-    let html_anchor = anchor.dyn_ref::<web_sys::HtmlAnchorElement>().unwrap();
-    html_anchor.click();
-
-    document.body().unwrap().remove_child(&anchor)?;
-    Url::revoke_object_url(&url)?;
-
-    Ok(())
-}
-
-/// 从Markdown内容中提取标题
-fn extract_title_from_content(content: &str) -> Option<String> {
-    // 寻找第一个一级标题
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with("# ") && line.len() > 2 {
-            return Some(line[2..].trim().to_string());
-        }
-    }
-
-    // 寻找第一个二级标题
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with("## ") && line.len() > 3 {
-            return Some(line[3..].trim().to_string());
-        }
-    }
-
-    None
-}
-
-/// 从URL中提取标题
-fn extract_title_from_url(url: &str) -> String {
-    if url.is_empty() {
-        return "translated_content".to_string();
-    }
-
-    // 尝试解析URL
-    if let Ok(parsed_url) = url::Url::parse(url) {
-        // 获取路径的最后一部分
-        let path = parsed_url.path();
-        if let Some(last_segment) = path.split('/').last() {
-            if !last_segment.is_empty() && last_segment != "index.html" {
-                // 移除文件扩展名
-                let name = last_segment.split('.').next().unwrap_or(last_segment);
-                if !name.is_empty() {
-                    return name.to_string();
-                }
-            }
-        }
-
-        // 如果路径不能提供有用信息，使用域名
-        if let Some(domain) = parsed_url.domain() {
-            return domain.replace('.', "_");
-        }
-    }
-
-    "translated_content".to_string()
 }
