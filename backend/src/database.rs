@@ -2,6 +2,7 @@
 
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::{Executor, Postgres, Transaction};
+use std::ops::Deref;
 use std::time::Duration;
 use tracing::{info, warn};
 
@@ -81,6 +82,15 @@ impl Database {
             size: self.pool.size(),
             idle: self.pool.num_idle(),
         }
+    }
+}
+
+// 实现Deref trait，让Database可以自动解引用为PgPool
+impl Deref for Database {
+    type Target = PgPool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pool
     }
 }
 

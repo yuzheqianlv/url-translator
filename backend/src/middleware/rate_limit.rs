@@ -4,7 +4,7 @@ use axum::{
     extract::Request,
     http::StatusCode,
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use std::collections::HashMap;
 use std::net::IpAddr;

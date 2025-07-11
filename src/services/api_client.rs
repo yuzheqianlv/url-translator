@@ -49,7 +49,6 @@ impl ApiClient {
     /// 创建新的API客户端
     pub fn new(config: ApiConfig) -> Self {
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(config.timeout_seconds))
             .build()
             .expect("Failed to create HTTP client");
 
@@ -137,8 +136,8 @@ pub struct ApiError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslateUrlRequest {
     pub url: String,
-    pub source_language: String,
-    pub target_language: String,
+    pub source_lang: String,
+    pub target_lang: String,
     pub project_id: Option<String>,
 }
 
@@ -146,22 +145,57 @@ pub struct TranslateUrlRequest {
 pub struct TranslationResponse {
     pub id: String,
     pub url: String,
-    pub title: Option<String>,
+    pub source_lang: String,
+    pub target_lang: String,
     pub original_content: String,
     pub translated_content: String,
-    pub source_language: String,
-    pub target_language: String,
-    pub translation_time_ms: Option<i32>,
     pub created_at: String,
+    pub user_id: Option<String>,
+    pub project_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TranslationListResponse {
+pub struct TranslationHistoryResponse {
     pub translations: Vec<TranslationResponse>,
     pub total: i64,
     pub page: u32,
     pub per_page: u32,
-    pub total_pages: u32,
+}
+
+// ============== 异步任务相关数据结构 ==============
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskSubmissionResponse {
+    pub task_id: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum TaskStatus {
+    Pending,
+    Processing,
+    Completed,
+    Failed,
+    Retrying,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslationTask {
+    pub id: String,
+    pub user_id: String,
+    pub url: String,
+    pub source_lang: String,
+    pub target_lang: String,
+    pub project_id: Option<String>,
+    pub status: TaskStatus,
+    pub progress: f32,
+    pub progress_message: String,
+    pub created_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub error_message: Option<String>,
+    pub retry_count: u32,
+    pub max_retries: u32,
 }
 
 // ============== 项目管理数据结构 ==============
@@ -421,7 +455,7 @@ impl ApiClient {
     }
 
     /// 获取翻译历史
-    pub async fn get_translation_history(&self, page: Option<u32>, per_page: Option<u32>) -> Result<TranslationListResponse, String> {
+    pub async fn get_translation_history(&self, page: Option<u32>, per_page: Option<u32>) -> Result<TranslationHistoryResponse, String> {
         let mut url = self.build_url("/translations/history");
         
         let mut params = Vec::new();
@@ -445,7 +479,7 @@ impl ApiClient {
             .map_err(|e| format!("获取翻译历史失败: {}", e))?;
 
         if response.status().is_success() {
-            let history: TranslationListResponse = response
+            let history: TranslationHistoryResponse = response
                 .json()
                 .await
                 .map_err(|e| format!("解析翻译历史失败: {}", e))?;
@@ -504,6 +538,109 @@ impl ApiClient {
                 .await
                 .unwrap_or_else(|_| "未知错误".to_string());
             Err(format!("删除翻译失败: {}", error_text))
+        }
+    }
+
+    // ============== 异步任务API ==============
+
+    /// 提交异步翻译任务
+    pub async fn submit_translation_task(&self, request: TranslateUrlRequest) -> Result<TaskSubmissionResponse, String> {
+        let url = self.build_url("/translations/tasks/submit");
+        
+        let response = self.client
+            .post(&url)
+            .headers(self.get_auth_headers())
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| format!("提交翻译任务失败: {}", e))?;
+
+        if response.status().is_success() {
+            let task_response: TaskSubmissionResponse = response
+                .json()
+                .await
+                .map_err(|e| format!("解析任务提交响应失败: {}", e))?;
+            Ok(task_response)
+        } else {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "未知错误".to_string());
+            Err(format!("提交翻译任务失败: {}", error_text))
+        }
+    }
+
+    /// 获取翻译任务状态
+    pub async fn get_task_status(&self, task_id: &str) -> Result<TranslationTask, String> {
+        let url = self.build_url(&format!("/translations/tasks/{}/status", task_id));
+        
+        let response = self.client
+            .get(&url)
+            .headers(self.get_auth_headers())
+            .send()
+            .await
+            .map_err(|e| format!("获取任务状态失败: {}", e))?;
+
+        if response.status().is_success() {
+            let task: TranslationTask = response
+                .json()
+                .await
+                .map_err(|e| format!("解析任务状态失败: {}", e))?;
+            Ok(task)
+        } else {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "未知错误".to_string());
+            Err(format!("获取任务状态失败: {}", error_text))
+        }
+    }
+
+    /// 取消翻译任务
+    pub async fn cancel_translation_task(&self, task_id: &str) -> Result<(), String> {
+        let url = self.build_url(&format!("/translations/tasks/{}/cancel", task_id));
+        
+        let response = self.client
+            .post(&url)
+            .headers(self.get_auth_headers())
+            .send()
+            .await
+            .map_err(|e| format!("取消任务失败: {}", e))?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "未知错误".to_string());
+            Err(format!("取消任务失败: {}", error_text))
+        }
+    }
+
+    /// 获取用户的所有翻译任务
+    pub async fn get_user_tasks(&self) -> Result<Vec<TranslationTask>, String> {
+        let url = self.build_url("/translations/tasks");
+        
+        let response = self.client
+            .get(&url)
+            .headers(self.get_auth_headers())
+            .send()
+            .await
+            .map_err(|e| format!("获取用户任务失败: {}", e))?;
+
+        if response.status().is_success() {
+            let tasks: Vec<TranslationTask> = response
+                .json()
+                .await
+                .map_err(|e| format!("解析用户任务失败: {}", e))?;
+            Ok(tasks)
+        } else {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "未知错误".to_string());
+            Err(format!("获取用户任务失败: {}", error_text))
         }
     }
 

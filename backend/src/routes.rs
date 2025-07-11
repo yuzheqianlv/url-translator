@@ -35,6 +35,12 @@ fn api_routes() -> Router<Services> {
         // User management routes
         .nest("/users", user_routes())
         
+        // Admin management routes
+        .nest("/admin", admin_routes())
+        
+        // Migration routes (temporary)
+        .nest("/migrate", migration_routes())
+        
         // Translation routes
         .nest("/translations", translation_routes())
         
@@ -46,6 +52,9 @@ fn api_routes() -> Router<Services> {
         
         // System and admin routes
         .nest("/system", system_routes())
+        
+        // WebSocket routes
+        .nest("/ws", websocket_routes())
 }
 
 /// Authentication routes
@@ -79,8 +88,14 @@ fn translation_routes() -> Router<Services> {
     use axum::routing::{get, post, delete};
     
     Router::new()
-        // Single translation
+        // Single translation (synchronous)
         .route("/translate", post(handlers::translations::translate_url))
+        
+        // Async translation task endpoints
+        .route("/tasks/submit", post(handlers::translations::submit_translation_task))
+        .route("/tasks/:task_id/status", get(handlers::translations::get_task_status))
+        .route("/tasks/:task_id/cancel", post(handlers::translations::cancel_translation_task))
+        .route("/tasks", get(handlers::translations::get_user_tasks))
         
         // Translation history
         .route("/history", get(handlers::translations::get_history))
@@ -120,6 +135,19 @@ fn project_routes() -> Router<Services> {
         .route("/:id/export", get(handlers::projects::export_project))
 }
 
+/// Admin management routes (requires admin privileges)
+fn admin_routes() -> Router<Services> {
+    use axum::routing::{get, post, put, delete};
+    
+    Router::new()
+        // User management - admin privileges checked in handlers
+        .route("/users", post(handlers::admin::create_admin_user))
+        .route("/users", get(handlers::admin::list_users))
+        .route("/users/:id/role", put(handlers::admin::update_user_role))
+        .route("/users/:id/permissions/:permission", get(handlers::admin::check_user_permission))
+        .route("/users/:id", delete(handlers::admin::delete_user))
+}
+
 /// System and admin routes
 fn system_routes() -> Router<Services> {
     use axum::routing::{get, post};
@@ -130,4 +158,23 @@ fn system_routes() -> Router<Services> {
         .route("/stats", get(handlers::system::get_system_stats))
         .route("/metrics", get(handlers::system::get_metrics))
         .route("/cache/clear", post(handlers::system::clear_cache))
+        // Admin privileges checked in handlers
+}
+
+/// Migration routes (temporary, for database setup)
+fn migration_routes() -> Router<Services> {
+    use axum::routing::{get, post};
+    
+    Router::new()
+        .route("/status", get(handlers::migration::check_migration_status))
+        .route("/user-roles", post(handlers::migration::migrate_user_roles))
+        .route("/upgrade-admin", post(handlers::migration::upgrade_user_to_admin))
+}
+
+/// WebSocket routes
+fn websocket_routes() -> Router<Services> {
+    use axum::routing::get;
+    
+    Router::new()
+        .route("/", get(handlers::websocket::websocket_handler))
 }

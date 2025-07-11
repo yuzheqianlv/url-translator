@@ -7,8 +7,8 @@ public_url = "/"
 release = false
 
 [watch]
-watch = ["src", "index.html", ".env"]
-ignore = ["target", "node_modules", "*.tmp"]
+watch = ["src", "index.html"]
+ignore = ["target"]
 
 [serve]
 # 设置默认端口为3001
@@ -17,10 +17,10 @@ open = true
 # 启用热重载
 ws_protocol = "ws"
 
-[clean]
-# 自动清理过期文件
-dist = true
-cargo = false
+# [clean]
+# # 自动清理过期文件
+# dist = "dist"
+# cargo = false
 
 # 环境变量配置
 [env]

@@ -52,6 +52,16 @@ async fn main() -> AppResult<()> {
     let services = services::Services::new(&config, database.clone()).await?;
     info!("Services initialized successfully");
 
+    // Start task processor in the background
+    let task_processor = services::task_queue::TaskProcessor::new(
+        services.task_queue.clone(),
+        services.translation_service.clone(),
+    );
+    tokio::spawn(async move {
+        task_processor.start_processing().await;
+    });
+    info!("Task processor started");
+
     // Create router with middleware
     let app = create_router(services)
         .layer(

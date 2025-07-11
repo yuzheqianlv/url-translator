@@ -251,6 +251,19 @@ impl RedisService {
             .map_err(|e| AppError::Redis(e))
             .map(|_| ())
     }
+
+    /// Get Redis connection for async operations
+    pub async fn get_async_connection(&self) -> AppResult<redis::aio::Connection> {
+        let conn = self.client.get_async_connection()
+            .await
+            .map_err(|e| AppError::Redis(e))?;
+        Ok(conn)
+    }
+
+    /// Get Redis client for pub/sub operations
+    pub fn get_client(&self) -> Client {
+        self.client.clone()
+    }
 }
 
 /// Helper functions for creating cache keys

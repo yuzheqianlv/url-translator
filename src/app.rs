@@ -1,7 +1,8 @@
 use crate::error::{ErrorDisplay, ErrorProvider};
 use crate::pages::{BatchPage, HistoryPage, HomePage, ProjectsPage, SettingsPage};
-use crate::components::Header;
+use crate::components::{Header, NotificationContainer};
 use crate::theme::{use_theme_context, ThemeProvider};
+use crate::hooks::AsyncTranslationProvider;
 use leptos::*;
 use leptos_router::*;
 
@@ -10,7 +11,9 @@ pub fn App() -> impl IntoView {
     view! {
         <ErrorProvider>
             <ThemeProvider>
-                <AppContent />
+                <AsyncTranslationProvider>
+                    <AppContent />
+                </AsyncTranslationProvider>
             </ThemeProvider>
         </ErrorProvider>
     }
@@ -35,6 +38,7 @@ fn AppContent() -> impl IntoView {
                 </main>
             </Router>
             <ErrorDisplay />
+            <NotificationContainer />
         </div>
     }
 }

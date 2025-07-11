@@ -1,9 +1,12 @@
 use crate::components::{
-    BilingualDisplay, DisplayMode, FileNamePreview, PreviewPanel, ProgressIndicator, UrlInput,
+    AsyncTranslationDisplay, AuthRequired, BilingualDisplay, DisplayMode, FileNamePreview, PreviewPanel, ProgressIndicator, UrlInput,
 };
 use crate::hooks::use_config::use_config;
-use crate::hooks::use_translation::use_translation;
+use crate::hooks::use_backend_translation::use_backend_translation;
+use crate::hooks::use_async_translation::use_async_translation;
+use crate::hooks::use_auth::{use_auth, AuthStatus};
 use crate::services::file_naming_service::{FileNamingContext, FileNamingService};
+use crate::services::api_client::TranslateUrlRequest;
 use crate::theme::use_theme_context;
 use chrono::Utc;
 use leptos::*;
@@ -13,28 +16,83 @@ use web_sys::{window, Blob, Url};
 
 #[component]
 pub fn HomePage() -> impl IntoView {
-    let translation = use_translation();
+    let translation = use_backend_translation();
+    let async_translation = use_async_translation();
+    let auth = use_auth();
     let theme_context = use_theme_context();
     let config_hook = use_config();
     let (url, set_url) = create_signal(String::new());
     let (show_preview, set_show_preview) = create_signal(false);
     let (display_mode, set_display_mode) = create_signal(DisplayMode::Bilingual);
+    let (use_async_mode, set_use_async_mode) = create_signal(true); // 默认使用异步模式
+    
+    // 从翻译结果派生的内容信号
+    let (original_content, set_original_content) = create_signal(String::new());
+    let (translated_content, set_translated_content) = create_signal(String::new());
+    
+    // 创建loading状态的ReadSignal
+    let (is_loading, set_is_loading) = create_signal(false);
+    
+    // 监听翻译结果变化并更新内容
+    create_effect(move |_| {
+        if let Some(response) = translation.translation_result.get() {
+            set_original_content.set(response.original_content);
+            set_translated_content.set(response.translated_content);
+        }
+    });
+    
+    // 监听loading状态变化
+    create_effect(move |_| {
+        set_is_loading.set(translation.is_loading.get());
+    });
 
     let handle_translate = move |_| {
         let url_value = url.get();
-        translation.translate.set(Some(url_value));
+        if url_value.is_empty() {
+            return;
+        }
+        
+        // 检查用户认证状态
+        match auth.auth_status.get() {
+            AuthStatus::Authenticated(_) => {
+                let config = config_hook.config.get();
+                let request = TranslateUrlRequest {
+                    url: url_value,
+                    source_lang: config.default_source_lang,
+                    target_lang: config.default_target_lang,
+                    project_id: None, // 主页单页翻译不关联项目
+                };
+                
+                if use_async_mode.get() {
+                    // 使用异步模式
+                    async_translation.submit_task.set(Some(request));
+                } else {
+                    // 使用同步模式（原有的后端翻译）
+                    translation.translate.set(Some(request));
+                }
+            }
+            _ => {
+                // 用户未登录，显示登录提示或跳转到登录页面
+                // TODO: 显示登录模态框或错误提示
+                web_sys::console::log_1(&"需要登录后才能使用翻译功能".into());
+            }
+        }
     };
 
     let download_markdown = move |_| {
+        // 从后端翻译结果获取内容
+        let translation_response = translation.translation_result.get();
+        let Some(response) = translation_response else {
+            return;
+        };
+        
         // 根据显示模式决定下载内容
         let content = match display_mode.get() {
-            DisplayMode::TranslationOnly => translation.translation_result.get(),
-            DisplayMode::OriginalOnly => translation.original_content.get(),
+            DisplayMode::TranslationOnly => response.translated_content.clone(),
+            DisplayMode::OriginalOnly => response.original_content.clone(),
             DisplayMode::Bilingual => {
                 // 创建双语对照内容
-                let original = translation.original_content.get();
-                let translated = translation.translation_result.get();
-                create_bilingual_markdown(&original, &translated)
+                create_bilingual_markdown(&response.original_content, &response.translated_content)
             }
         };
         
@@ -127,18 +185,19 @@ pub fn HomePage() -> impl IntoView {
                 </div>
             </div>
 
-            <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
-                <div class="space-y-4">
-                    <UrlInput
-                        url=url
-                        set_url=set_url
-                        on_submit=handle_translate
-                        is_loading=translation.is_loading
-                    />
+            <AuthRequired message="请先登录后使用翻译功能，翻译结果将保存到您的账户中".to_string()>
+                <div class="rounded-lg shadow-lg p-6" style=move || theme_context.get().theme.card_style()>
+                    <div class="space-y-4">
+                        <UrlInput
+                            url=url
+                            set_url=set_url
+                            on_submit=handle_translate
+                            is_loading=is_loading
+                        />
 
-                    // 预览切换按钮
-                    <div class="flex items-center gap-4">
-                        <button
+                        // 预览切换按钮和模式切换
+                        <div class="flex items-center gap-4 flex-wrap">
+                            <button
                             type="button"
                             class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors"
                             class:bg-blue-100=move || show_preview.get()
@@ -162,9 +221,38 @@ pub fn HomePage() -> impl IntoView {
                             {move || if show_preview.get() { "隐藏预览" } else { "显示预览" }}
                         </button>
 
-                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                            "预览功能可以在正式翻译前查看前几段的翻译效果"
-                        </span>
+                        <button
+                            type="button"
+                            class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors"
+                            class:bg-green-100=move || use_async_mode.get()
+                            class:border-green-300=move || use_async_mode.get()
+                            class:text-green-800=move || use_async_mode.get()
+                            class:dark:bg-green-900=move || use_async_mode.get()
+                            class:dark:border-green-700=move || use_async_mode.get()
+                            class:dark:text-green-200=move || use_async_mode.get()
+                            class:bg-gray-100=move || !use_async_mode.get()
+                            class:border-gray-300=move || !use_async_mode.get()
+                            class:text-gray-700=move || !use_async_mode.get()
+                            class:dark:bg-gray-700=move || !use_async_mode.get()
+                            class:dark:border-gray-600=move || !use_async_mode.get()
+                            class:dark:text-gray-300=move || !use_async_mode.get()
+                            on:click=move |_| set_use_async_mode.update(|async_mode| *async_mode = !*async_mode)
+                        >
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            {move || if use_async_mode.get() { "异步模式" } else { "同步模式" }}
+                        </button>
+
+                        <div class="text-xs" style=move || theme_context.get().theme.subtext_style()>
+                            <span>
+                                "预览功能可以在正式翻译前查看前几段的翻译效果"
+                            </span>
+                            <br/>
+                            <span>
+                                {move || if use_async_mode.get() { "异步模式：翻译任务在后台处理，不会因页面刷新而中断" } else { "同步模式：直接返回翻译结果，页面刷新会中断翻译" }}
+                            </span>
+                        </div>
                     </div>
 
                     <ProgressIndicator
@@ -179,22 +267,26 @@ pub fn HomePage() -> impl IntoView {
                             url=url
                         />
                     </Show>
+                    </div>
                 </div>
-            </div>
 
-            // 预览面板
-            <PreviewPanel
-                url=url
-                show_preview=show_preview
-            />
+                // 预览面板
+                    <PreviewPanel
+                        url=url
+                        show_preview=show_preview
+                    />
 
-            <BilingualDisplay
-                original_content=translation.original_content
-                translated_content=translation.translation_result
-                display_mode=display_mode
-                on_download=download_markdown
-                on_mode_change=move |mode| set_display_mode.set(mode)
-            />
+                    // 异步翻译显示组件
+                    <AsyncTranslationDisplay />
+
+                    <BilingualDisplay
+                    original_content=original_content
+                    translated_content=translated_content
+                    display_mode=display_mode
+                    on_download=download_markdown
+                    on_mode_change=move |mode| set_display_mode.set(mode)
+                />
+            </AuthRequired>
         </div>
     }
 }

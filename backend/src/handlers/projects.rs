@@ -11,8 +11,14 @@ use crate::services::Services;
 pub async fn list_projects(
     State(_services): State<Services>,
 ) -> AppResult<Json<Value>> {
-    // TODO: Get user's projects
-    Err(crate::error::AppError::Internal("List projects not implemented".to_string()))
+    // TODO: Get user's projects from database with proper authentication
+    // For now, return an empty list to test the connection
+    Ok(Json(json!({
+        "projects": [],
+        "total": 0,
+        "page": 1,
+        "per_page": 20
+    })))
 }
 
 /// Create new project

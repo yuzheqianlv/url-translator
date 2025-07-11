@@ -40,6 +40,9 @@ pub enum AppError {
     #[error("Bad request: {0}")]
     BadRequest(String),
     
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+    
     #[error("Internal server error: {0}")]
     Internal(String),
     
@@ -76,6 +79,7 @@ impl AppError {
             AppError::Validation(_) | AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::Forbidden(_) => StatusCode::FORBIDDEN,
             AppError::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             AppError::Database(_) 
             | AppError::Redis(_) 
@@ -100,6 +104,7 @@ impl AppError {
             AppError::Validation(_) => "Invalid input provided",
             AppError::NotFound(_) => "Resource not found",
             AppError::Conflict(_) => "Resource already exists",
+            AppError::Forbidden(_) => "Access forbidden",
             AppError::RateLimitExceeded => "Rate limit exceeded. Please try again later",
             AppError::BadRequest(_) => "Bad request",
             AppError::ExternalService(_) => "External service temporarily unavailable",
@@ -114,6 +119,7 @@ impl AppError {
             | AppError::Validation(_) 
             | AppError::NotFound(_) 
             | AppError::BadRequest(_)
+            | AppError::Forbidden(_)
             | AppError::RateLimitExceeded
         )
     }
@@ -150,9 +156,3 @@ impl From<validator::ValidationErrors> for AppError {
     }
 }
 
-// Convert argon2 errors
-impl From<argon2::Error> for AppError {
-    fn from(err: argon2::Error) -> Self {
-        AppError::PasswordHash(format!("Password hashing failed: {}", err))
-    }
-}

@@ -77,6 +77,10 @@ pub struct TranslationConfig {
     pub max_batch_size: usize,
     pub default_timeout_seconds: u64,
     pub max_concurrent_requests: usize,
+    pub max_paragraphs_per_request: usize,
+    pub max_requests_per_second: usize,
+    pub deeplx_api_url: String,
+    pub jina_api_url: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

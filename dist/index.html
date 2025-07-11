@@ -7,11 +7,11 @@
     <meta name="description" content="基于Jina AI和DeepLX的URL内容翻译工具">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
-<link rel="modulepreload" href="/url-translator-460ee5a17fc2c8fe.js" crossorigin="anonymous" integrity="sha384-InT2jYwPUyqEx8ae28kpFkX8DHexwZTtl4vs3peFoh1BpvV13CTbAQHugFjXRspp"><link rel="preload" href="/url-translator-460ee5a17fc2c8fe_bg.wasm" crossorigin="anonymous" integrity="sha384-B0/UrGLwfY17UOUMujcnzKqcuffLRYasVPXC4RQqt/TTiWfeRsmWswj9CBZfX7C3" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/url-translator-6d60a6fdb326829.js" crossorigin="anonymous" integrity="sha384-gwmiZuihowY/IXPVqdg5Ax5vSSbwHK5DZJMlCdhjDThQO6H0YL0JKh3dIBuHK7X+"><link rel="preload" href="/url-translator-6d60a6fdb326829_bg.wasm" crossorigin="anonymous" integrity="sha384-Kt83BOo23ST+sHnbjXPPMFkJiTMHFg9AvY/18Qp6Vt1sT96sJWaSicMP9e14pDXA" as="fetch" type="application/wasm"></head>
 <body>
 <script type="module">
-import init, * as bindings from '/url-translator-460ee5a17fc2c8fe.js';
-const wasm = await init({ module_or_path: '/url-translator-460ee5a17fc2c8fe_bg.wasm' });
+import init, * as bindings from '/url-translator-6d60a6fdb326829.js';
+const wasm = await init({ module_or_path: '/url-translator-6d60a6fdb326829_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -25,7 +25,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
     const address = '{{__TRUNK_ADDRESS__}}';
     const base = '{{__TRUNK_WS_BASE__}}';
-    let protocol = '';
+    let protocol = 'ws';
     protocol =
         protocol
             ? protocol

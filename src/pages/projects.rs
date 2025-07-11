@@ -41,15 +41,16 @@ pub fn ProjectsPage() -> impl IntoView {
 
     // 加载项目列表
     let load_projects = move || {
-        if !is_authenticated(&auth.auth_status.get()) {
+        let auth_status = auth.auth_status.get_untracked();
+        if !is_authenticated(&auth_status) {
             return;
         }
         
         set_loading.set(true);
         set_error_message.set(None);
         
+        let api_client = auth.api_client.get_untracked();
         spawn_local(async move {
-            let api_client = auth.api_client.get();
             match api_client.get_projects(None, None).await {
                 Ok(project_list) => {
                     set_projects.set(project_list.projects);
@@ -82,8 +83,8 @@ pub fn ProjectsPage() -> impl IntoView {
             target_language: target_language.get(),
         };
         
+        let api_client = auth.api_client.get_untracked();
         spawn_local(async move {
-            let api_client = auth.api_client.get();
             match api_client.create_project(request).await {
                 Ok(_) => {
                     set_show_create_modal.set(false);
@@ -123,8 +124,8 @@ pub fn ProjectsPage() -> impl IntoView {
         };
         
         let project_id = project.id;
+        let api_client = auth.api_client.get_untracked();
         spawn_local(async move {
-            let api_client = auth.api_client.get();
             match api_client.update_project(project_id, request).await {
                 Ok(_) => {
                     set_show_edit_modal.set(false);
@@ -145,8 +146,8 @@ pub fn ProjectsPage() -> impl IntoView {
         set_loading.set(true);
         set_error_message.set(None);
         
+        let api_client = auth.api_client.get_untracked();
         spawn_local(async move {
-            let api_client = auth.api_client.get();
             match api_client.delete_project(project_id).await {
                 Ok(_) => {
                     load_projects();

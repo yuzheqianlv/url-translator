@@ -1,11 +1,11 @@
-use crate::hooks::use_translation::TranslationStatus;
+use crate::hooks::use_backend_translation::BackendTranslationStatus;
 use leptos::*;
 
 #[component]
 pub fn ProgressIndicator(
-    is_loading: ReadSignal<bool>,
+    is_loading: Memo<bool>,
     progress_message: ReadSignal<String>,
-    status: ReadSignal<TranslationStatus>,
+    status: ReadSignal<BackendTranslationStatus>,
 ) -> impl IntoView {
     view! {
         <Show when=move || is_loading.get() && !progress_message.get().is_empty()>
@@ -21,11 +21,11 @@ pub fn ProgressIndicator(
                     <div class="text-sm mt-1">
                         {move || {
                             match status.get() {
-                                TranslationStatus::ExtractingContent => "正在从网页提取内容...",
-                                TranslationStatus::Translating => "正在进行翻译处理...",
-                                TranslationStatus::Completed => "处理完成！",
-                                TranslationStatus::Failed(_) => "处理失败",
-                                TranslationStatus::Idle => "",
+                                BackendTranslationStatus::Submitting => "正在提交翻译请求...",
+                                BackendTranslationStatus::Processing => "正在进行翻译处理...",
+                                BackendTranslationStatus::Completed => "翻译完成！",
+                                BackendTranslationStatus::Failed(_) => "翻译失败",
+                                BackendTranslationStatus::Idle => "",
                             }
                         }}
                     </div>

@@ -1,7 +1,5 @@
 //! Authentication service
 
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -10,10 +8,11 @@ use crate::config::AppConfig;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 use crate::models::{LoginRequest, LoginResponse, UserProfile};
+use crate::services::user_service::UserService;
 
 #[derive(Clone)]
 pub struct AuthService {
-    database: Database,
+    user_service: UserService,
     jwt_secret: String,
     jwt_expiry_hours: u64,
 }
@@ -27,8 +26,9 @@ struct Claims {
 
 impl AuthService {
     pub async fn new(config: &AppConfig, database: Database) -> AppResult<Self> {
+        let user_service = UserService::new(config, database).await?;
         Ok(Self {
-            database,
+            user_service,
             jwt_secret: config.auth.jwt_secret.clone(),
             jwt_expiry_hours: config.auth.jwt_expiry_hours,
         })
@@ -36,32 +36,34 @@ impl AuthService {
 
     /// Login user and return JWT tokens
     pub async fn login(&self, request: LoginRequest) -> AppResult<LoginResponse> {
-        // TODO: Implement user lookup from database
-        // let user = self.find_user_by_email(&request.email).await?;
+        // Verify user credentials
+        let user = self.user_service.verify_password(&request.email, &request.password).await?;
         
-        // TODO: Verify password
-        // self.verify_password(&request.password, &user.password_hash)?;
+        // Update last login time
+        self.user_service.update_last_login(user.id).await?;
         
-        // For now, return a mock response
-        let user_id = Uuid::new_v4();
-        let access_token = self.generate_access_token(user_id)?;
-        let refresh_token = self.generate_refresh_token(user_id)?;
+        // Generate tokens
+        let access_token = self.generate_access_token(user.id)?;
+        let refresh_token = self.generate_refresh_token(user.id)?;
         
-        // Mock user profile
-        let user = UserProfile {
-            id: user_id,
-            username: "test_user".to_string(),
-            email: request.email,
-            is_active: true,
-            created_at: chrono::Utc::now(),
-            last_login_at: Some(chrono::Utc::now()),
+        // Convert to user profile
+        let user_profile = UserProfile {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            is_active: user.is_active,
+            role: user.role,
+            is_admin: user.is_admin,
+            permissions: user.permissions,
+            created_at: user.created_at,
+            last_login_at: user.last_login_at,
         };
         
         Ok(LoginResponse {
             access_token,
             refresh_token,
             expires_in: (self.jwt_expiry_hours * 3600) as i64,
-            user,
+            user: user_profile,
         })
     }
 
@@ -107,28 +109,16 @@ impl AuthService {
         .map_err(AppError::Jwt)
     }
 
-    /// Hash password using Argon2
-    pub fn hash_password(&self, password: &str) -> AppResult<String> {
-        let salt = SaltString::generate(&mut OsRng);
-        let argon2 = Argon2::default();
-        
-        let password_hash = argon2
-            .hash_password(password.as_bytes(), &salt)
-            .map_err(|e| AppError::PasswordHash(e.to_string()))?
-            .to_string();
-            
-        Ok(password_hash)
-    }
+    /// Verify JWT token
+    pub fn verify_token(&self, token: &str) -> AppResult<Uuid> {
+        let token_data = jsonwebtoken::decode::<Claims>(
+            token,
+            &jsonwebtoken::DecodingKey::from_secret(self.jwt_secret.as_ref()),
+            &jsonwebtoken::Validation::default(),
+        )
+        .map_err(AppError::Jwt)?;
 
-    /// Verify password against hash
-    pub fn verify_password(&self, password: &str, hash: &str) -> AppResult<()> {
-        let parsed_hash = PasswordHash::new(hash)
-            .map_err(|e| AppError::PasswordHash(e.to_string()))?;
-        
-        Argon2::default()
-            .verify_password(password.as_bytes(), &parsed_hash)
-            .map_err(|e| AppError::Auth(format!("Invalid password: {}", e)))?;
-            
-        Ok(())
+        Uuid::parse_str(&token_data.claims.sub)
+            .map_err(|e| AppError::Internal(format!("Invalid user ID in token: {}", e)))
     }
 }
