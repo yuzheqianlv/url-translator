@@ -114,3 +114,5 @@ Cargo.lock
 .DS_Store
 *.log
 node_modules/
+target/
+backend/target/
